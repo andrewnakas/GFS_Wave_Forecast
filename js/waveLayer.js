@@ -18,6 +18,7 @@ class WaveVelocityLayer {
         this.frameSkip = 0;  // For throttling animation
         this.waveDataCache = null;  // Cache wave data
         this.cacheTimeIndex = -1;  // Track when cache is stale
+        this.isMapMoving = false;  // Track if map is currently panning/zooming
 
         this.initializeCanvas();
     }
@@ -45,28 +46,50 @@ class WaveVelocityLayer {
                 map.getPanes().overlayPane.appendChild(this.canvas);
 
                 // Listen to map movement events for proper rendering
-                map.on('viewreset', () => this.redraw());
-                map.on('moveend', () => this.redraw());
-                map.on('zoomend', () => this.redraw());
+                map.on('movestart', () => this.onMoveStart());
+                map.on('zoomstart', () => this.onMoveStart());
+                map.on('moveend', () => this.onMoveEnd());
+                map.on('zoomend', () => this.onMoveEnd());
+                map.on('viewreset', () => this.onMoveEnd());
                 map.on('resize', () => this.resize());
-                map.on('move', () => this.redraw());  // Continuous drawing during pan
 
                 this.initializeParticles();
             },
 
             onRemove: (map) => {
                 L.DomUtil.remove(this.canvas);
-                map.off('viewreset', this.redraw);
-                map.off('moveend', this.redraw);
-                map.off('zoomend', this.redraw);
-                map.off('resize', this.resize);
-                map.off('move', this.redraw);
+                map.off('movestart');
+                map.off('zoomstart');
+                map.off('viewreset');
+                map.off('moveend');
+                map.off('zoomend');
+                map.off('resize');
                 this.stopAnimation();
             }
         });
 
         this.layer = new CanvasLayer();
         this.layer.addTo(this.map);
+    }
+
+    /**
+     * Handle map movement start (pan/zoom start)
+     */
+    onMoveStart() {
+        this.isMapMoving = true;
+        // Clear canvas during movement
+        if (this.ctx && this.canvas) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+    }
+
+    /**
+     * Handle map movement end (pan/zoom end)
+     */
+    onMoveEnd() {
+        this.isMapMoving = false;
+        // Redraw particles at their new screen positions
+        this.redraw();
     }
 
     /**
@@ -155,6 +178,9 @@ class WaveVelocityLayer {
      */
     draw() {
         if (!this.ctx || !this.canvas) return;
+
+        // Don't draw if map is currently moving
+        if (this.isMapMoving) return;
 
         // Frame skipping for better performance - only draw every other frame
         this.frameSkip++;
