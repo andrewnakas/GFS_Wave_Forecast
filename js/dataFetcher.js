@@ -76,8 +76,8 @@ class GFSDataFetcher {
             timeSteps: timeSteps,
             gridData: gridData,
             metadata: {
-                source: 'GFS Wave (WAVEWATCH III)',
-                resolution: '0.25 degrees',
+                source: 'GFS Wave (WAVEWATCH III) - Optimized Sample Data',
+                resolution: '2 degrees (optimized for performance)',
                 generated: now.toISOString()
             }
         };
@@ -90,8 +90,8 @@ class GFSDataFetcher {
      */
     generateGridData() {
         const grid = [];
-        const latStep = 1.0; // 1 degree resolution for demo
-        const lonStep = 1.0;
+        const latStep = 2.0; // 2 degree resolution for better performance
+        const lonStep = 2.0;
 
         // Generate data for global ocean (simplified)
         for (let lat = -60; lat <= 60; lat += latStep) {
