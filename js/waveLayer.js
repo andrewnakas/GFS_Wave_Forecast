@@ -260,6 +260,14 @@ class WaveVelocityLayer {
         const ctx = this.ctx;
         const speed = 0.015;  // Increased for longer wave movement
 
+        // Create expanded bounds with buffer to prevent respawning during panning
+        const latBuffer = (bounds.getNorth() - bounds.getSouth()) * 0.3;
+        const lonBuffer = (bounds.getEast() - bounds.getWest()) * 0.3;
+        const expandedBounds = L.latLngBounds(
+            L.latLng(bounds.getSouth() - latBuffer, bounds.getWest() - lonBuffer),
+            L.latLng(bounds.getNorth() + latBuffer, bounds.getEast() + lonBuffer)
+        );
+
         // Batch drawing operations for better performance
         ctx.save();
 
@@ -288,9 +296,9 @@ class WaveVelocityLayer {
             // Age particle
             particle.age++;
 
-            // Check if particle is on land or out of bounds
+            // Check if particle is on land or out of bounds (use expanded bounds with buffer)
             const isOnLand = this.dataFetcher.isLand(particle.lat, particle.lon);
-            const isOutOfBounds = !bounds.contains([particle.lat, particle.lon]);
+            const isOutOfBounds = !expandedBounds.contains([particle.lat, particle.lon]);
 
             // Skip drawing if particle is on land
             if (isOnLand) {
@@ -324,8 +332,19 @@ class WaveVelocityLayer {
                 continue;
             }
 
+            // Only draw if particle is within visible bounds (not in buffer zone)
+            if (!bounds.contains([particle.lat, particle.lon])) {
+                continue;  // Skip drawing particles outside visible area
+            }
+
             // Draw particle as wave-like shape (elongated)
             const point = this.map.latLngToContainerPoint([particle.lat, particle.lon]);
+
+            // Additional screen bounds check
+            if (point.x < 0 || point.x > this.canvas.width || point.y < 0 || point.y > this.canvas.height) {
+                continue;  // Skip if off-screen
+            }
+
             const alpha = 1 - (particle.age / particle.maxAge);
 
             ctx.fillStyle = particle.wave ? this.getColorForHeight(particle.wave.height) : '#64b5f6';
