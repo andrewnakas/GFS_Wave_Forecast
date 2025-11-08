@@ -52,7 +52,7 @@ header h1 {
     position: absolute;
     top: 80px;
     right: 20px;
-    width: 320px;
+    width: 400px;
     background: rgba(10, 25, 41, 0.95);
     border-radius: 12px;
     padding: 20px;
@@ -60,6 +60,16 @@ header h1 {
     z-index: 1000;
     max-height: calc(100vh - 120px);
     overflow-y: auto;
+}
+
+/* Forecast Chart Section */
+#forecast-chart-section {
+    padding: 15px 0;
+}
+
+#forecast-chart-section canvas {
+    width: 100% !important;
+    height: 300px !important;
 }
 
 .control-section {
