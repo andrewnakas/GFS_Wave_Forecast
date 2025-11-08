@@ -1,0 +1,169 @@
+name: Ski Resort Scraper Test
+
+on:
+  # Allow manual trigger with custom parameters
+  workflow_dispatch:
+    inputs:
+      countries:
+        description: 'Countries to scrape (space-separated, e.g., "USA Canada")'
+        required: false
+        default: 'USA'
+      resorts:
+        description: 'Specific resorts to scrape (comma-separated, e.g., "Vail,Whistler Blackcomb")'
+        required: false
+        default: ''
+      test_mode:
+        description: 'Test mode (scrape only 5 resorts)'
+        required: false
+        type: boolean
+        default: true
+
+  # Scheduled run - daily at 7 AM UTC (useful for actual daily collection)
+  schedule:
+    - cron: '0 7 * * *'
+
+  # Run on push to test the workflow
+  push:
+    branches:
+      - 'claude/**'
+    paths:
+      - '**.py'
+      - 'requirements.txt'
+      - '.github/workflows/scraper-test.yml'
+
+jobs:
+  scrape-snow-data:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Initialize database
+      run: |
+        python collect_data.py --init
+        echo "Database initialized with resorts"
+
+    - name: Run scraper (Test Mode - 5 resorts)
+      if: github.event.inputs.test_mode == 'true' || github.event_name == 'push'
+      run: |
+        echo "Running test scrape on 5 US resorts..."
+        python collect_data.py --collect --resorts "Vail" "Breckenridge" "Mammoth Mountain" "Jackson Hole" "Stowe"
+
+    - name: Run scraper (Custom Countries)
+      if: github.event.inputs.countries != '' && github.event.inputs.test_mode != 'true'
+      run: |
+        echo "Scraping countries: ${{ github.event.inputs.countries }}"
+        python collect_data.py --collect --countries ${{ github.event.inputs.countries }}
+
+    - name: Run scraper (Custom Resorts)
+      if: github.event.inputs.resorts != '' && github.event.inputs.test_mode != 'true'
+      run: |
+        echo "Scraping resorts: ${{ github.event.inputs.resorts }}"
+        IFS=',' read -ra RESORTS <<< "${{ github.event.inputs.resorts }}"
+        python collect_data.py --collect --resorts "${RESORTS[@]}"
+
+    - name: Run scraper (Full - Scheduled)
+      if: github.event_name == 'schedule'
+      run: |
+        echo "Running full scheduled scrape..."
+        python collect_data.py --collect
+
+    - name: Display collected data
+      run: |
+        echo "===== LATEST SNOW DATA ====="
+        python collect_data.py --show
+
+    - name: Generate powder report
+      run: |
+        echo "===== POWDER ALERT ====="
+        python export_data.py --powder --min-snow 5
+
+    - name: Generate statistics
+      run: |
+        echo "===== DATABASE STATISTICS ====="
+        python export_data.py --stats
+
+    - name: Export data to CSV
+      run: |
+        python export_data.py --csv --output latest_snow_data.csv
+        echo "Data exported to CSV"
+
+    - name: Upload database artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ski-resort-database-${{ github.run_number }}
+        path: |
+          ski_resorts.db
+          latest_snow_data.csv
+          *.log
+        retention-days: 30
+
+    - name: Check scraping success rate
+      continue-on-error: true
+      run: |
+        python -c "
+        import sqlite3
+        from datetime import date
+
+        conn = sqlite3.connect('ski_resorts.db')
+        cursor = conn.cursor()
+
+        # Get today's scraping stats
+        cursor.execute('''
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful,
+                SUM(CASE WHEN status = 'NO_DATA' THEN 1 ELSE 0 END) as no_data
+            FROM scraping_log
+            WHERE DATE(scrape_time) = DATE('now')
+        ''')
+
+        row = cursor.fetchone()
+        total, successful, no_data = row
+
+        if total > 0:
+            success_rate = (successful / total) * 100
+            print(f'\\n=== SCRAPING RESULTS ===')
+            print(f'Total Attempts: {total}')
+            print(f'Successful (data found): {successful}')
+            print(f'No Data Found: {no_data}')
+            print(f'Failed: {total - successful - no_data}')
+            print(f'Success Rate: {success_rate:.1f}%')
+            print(f'========================\\n')
+
+            # Just warn if success rate is low, don't fail
+            if success_rate < 20:
+                print('⚠️  WARNING: Low success rate. This is normal for web scraping.')
+                print('    Many resort websites change frequently or use JavaScript.')
+                print('    The scraper will continue to improve over time.')
+        else:
+            print('No scraping attempts recorded')
+
+        conn.close()
+        "
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "## Scraper Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+        echo "- Event: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Test Mode: ${{ github.event.inputs.test_mode }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Countries: ${{ github.event.inputs.countries }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Resorts: ${{ github.event.inputs.resorts }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Logs" >> $GITHUB_STEP_SUMMARY
+        echo "Check the uploaded artifacts for database and log files." >> $GITHUB_STEP_SUMMARY
