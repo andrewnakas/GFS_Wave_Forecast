@@ -10,6 +10,9 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div id="app">
@@ -58,6 +61,11 @@
                 <div id="wave-info">
                     <p>Click on map for wave data</p>
                 </div>
+            </div>
+
+            <div class="control-section" id="forecast-chart-section" style="display: none;">
+                <h3>Wave Forecast Chart</h3>
+                <canvas id="wave-forecast-chart" style="max-height: 200px;"></canvas>
             </div>
 
             <div class="control-section">
