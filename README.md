@@ -6,10 +6,11 @@ A comprehensive Python-based system for collecting and storing daily snow condit
 
 - **50+ Major Ski Resorts**: Covers popular resorts across North America, Europe, and Asia
 - **Comprehensive Snow Data**: Collects base/summit snow depth, 24h/48h/7-day snowfall, lift/run status, and more
-- **Automated Daily Updates**: Set up scheduled scraping via cron or built-in scheduler
+- **Automated Daily Updates**: Set up scheduled scraping via cron, built-in scheduler, or GitHub Actions
 - **SQLite Database**: Persistent storage with historical data tracking
 - **Extensible Architecture**: Easy to add new resorts and custom scrapers
 - **Robust Scraping**: Generic parser handles various website formats with specialized scrapers for major resort chains
+- **GitHub Actions Integration**: Automated testing and scheduled scraping in the cloud
 
 ## Covered Regions
 
@@ -112,6 +113,58 @@ View installed cron jobs:
 ```bash
 crontab -l
 ```
+
+#### Option 3: Using GitHub Actions (Cloud-based)
+
+The repository includes a GitHub Actions workflow for automated testing and data collection.
+
+**Manual Test (Recommended for testing):**
+
+1. Go to your repository on GitHub
+2. Click on "Actions" tab
+3. Select "Ski Resort Scraper Test" workflow
+4. Click "Run workflow" dropdown
+5. Configure options:
+   - **Countries**: Space-separated (e.g., `USA Canada`)
+   - **Resorts**: Comma-separated (e.g., `Vail,Whistler Blackcomb,Niseko`)
+   - **Test mode**: Check to scrape only 5 resorts (faster testing)
+6. Click "Run workflow"
+
+The workflow will:
+- Set up Python environment
+- Install dependencies
+- Initialize the database
+- Scrape the selected resorts
+- Display collected data
+- Generate powder report and statistics
+- Upload database and logs as artifacts (available for 30 days)
+
+**Scheduled Runs:**
+
+The workflow is configured to run daily at 7 AM UTC. To enable/disable:
+1. Edit `.github/workflows/scraper-test.yml`
+2. Modify or comment out the `schedule` section
+
+**Artifacts:**
+
+After each run, download the artifacts to get:
+- `ski_resorts.db` - Complete database with scraped data
+- `latest_snow_data.csv` - Exported CSV file
+- Log files with detailed scraping information
+
+### Testing
+
+Run the test suite to validate the scraper:
+```bash
+python test_scraper.py
+```
+
+This runs automated tests for:
+- Database creation
+- Resort data integrity
+- Scraper initialization
+- Database operations
+- Live scraping test (scrapes Vail as a test)
 
 ## Database Schema
 
