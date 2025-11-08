@@ -114,50 +114,90 @@ class GFSDataFetcher {
     }
 
     /**
-     * Check if location is on land (improved land masking)
+     * Check if location is on land (more accurate land masking)
      */
     isLand(lat, lon) {
-        // North America
-        if (lat > 15 && lat < 72 && lon > -170 && lon < -50) return true;
-
-        // South America
-        if (lat > -55 && lat < 13 && lon > -82 && lon < -35) return true;
-
-        // Europe
-        if (lat > 35 && lat < 71 && lon > -10 && lon < 40) return true;
-
-        // Africa
-        if (lat > -35 && lat < 37 && lon > -18 && lon < 52) return true;
-
-        // Asia (main landmass)
-        if (lat > 5 && lat < 75 && lon > 40 && lon < 150) return true;
-
-        // Australia
-        if (lat > -45 && lat < -10 && lon > 110 && lon < 155) return true;
-
-        // Greenland
-        if (lat > 59 && lat < 84 && lon > -75 && lon < -10) return true;
+        // Normalize longitude to -180 to 180
+        while (lon > 180) lon -= 360;
+        while (lon < -180) lon += 360;
 
         // Antarctica
         if (lat < -60) return true;
 
-        // Japan
-        if (lat > 30 && lat < 46 && lon > 128 && lon < 146) return true;
+        // North America - more precise bounds
+        // Western coast and interior
+        if (lat > 24 && lat < 72 && lon > -170 && lon < -52) {
+            // Exclude Pacific near Alaska and Canada west coast
+            if (lat > 50 && lon < -130) return false;
+            // Exclude Gulf of Alaska
+            if (lat > 54 && lat < 62 && lon > -165 && lon < -130) return false;
+            return true;
+        }
 
-        // New Zealand
-        if (lat > -48 && lat < -34 && lon > 165 && lon < 180) return true;
-
-        // Southeast Asia islands (simplified)
-        if (lat > -10 && lat < 20 && lon > 95 && lon < 125) return true;
-
-        // Central America
+        // Mexico and Central America (narrow, exclude Pacific and Caribbean)
+        if (lat > 15 && lat < 32 && lon > -118 && lon < -86) return true;
         if (lat > 7 && lat < 22 && lon > -92 && lon < -77) return true;
 
-        // Caribbean islands (simplified)
-        if (lat > 10 && lat < 27 && lon > -85 && lon < -60) return true;
+        // South America - tighter bounds
+        if (lat > -56 && lat < 13 && lon > -82 && lon < -34) return true;
 
-        // Mediterranean (simplified)
-        if (lat > 30 && lat < 46 && lon > 0 && lon < 42) return true;
+        // Europe - more precise
+        if (lat > 36 && lat < 71 && lon > -10 && lon < 40) {
+            // Exclude some Atlantic areas
+            if (lat < 43 && lon < -5) return false;
+            return true;
+        }
+
+        // Africa - better bounds
+        if (lat > -35 && lat < 38 && lon > -18 && lon < 52) {
+            // Exclude Mediterranean
+            if (lat > 30 && lon > -6 && lon < 36) return false;
+            return true;
+        }
+
+        // Middle East
+        if (lat > 12 && lat < 42 && lon > 34 && lon < 63) return true;
+
+        // Asia - main landmass (more accurate)
+        if (lat > 5 && lat < 78 && lon > 40 && lon < 180) {
+            // Exclude Sea of Japan
+            if (lat > 35 && lat < 52 && lon > 127 && lon < 142) return false;
+            // Exclude South China Sea
+            if (lat > 0 && lat < 23 && lon > 105 && lon < 120) return false;
+            return true;
+        }
+
+        // India and subcontinent
+        if (lat > 6 && lat < 37 && lon > 68 && lon < 97) return true;
+
+        // Southeast Asia mainland
+        if (lat > 5 && lat < 28 && lon > 92 && lon < 110) return true;
+
+        // Indonesia and Philippines (simplified island groups)
+        if (lat > -10 && lat < 8 && lon > 95 && lon < 141) return true;
+        if (lat > 5 && lat < 20 && lon > 117 && lon < 127) return true;
+
+        // Australia
+        if (lat > -44 && lat < -10 && lon > 113 && lon < 154) return true;
+
+        // New Zealand
+        if (lat > -47 && lat < -34 && lon > 166 && lon < 179) return true;
+        if (lat > -47 && lat < -34 && lon > -180 && lon < -175) return true;
+
+        // Greenland
+        if (lat > 59 && lat < 84 && lon > -73 && lon < -11) return true;
+
+        // Iceland
+        if (lat > 63 && lat < 67 && lon > -25 && lon < -13) return true;
+
+        // British Isles
+        if (lat > 50 && lat < 61 && lon > -11 && lon < 2) return true;
+
+        // Japan
+        if (lat > 30 && lat < 46 && lon > 129 && lon < 146) return true;
+
+        // Madagascar
+        if (lat > -26 && lat < -11 && lon > 43 && lon < 51) return true;
 
         return false;
     }
