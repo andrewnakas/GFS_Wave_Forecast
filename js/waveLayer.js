@@ -44,16 +44,23 @@ class WaveVelocityLayer {
 
                 map.getPanes().overlayPane.appendChild(this.canvas);
 
+                // Listen to all map movement events for proper rendering
+                map.on('viewreset', () => this.reset());
                 map.on('moveend', () => this.reset());
+                map.on('zoomend', () => this.reset());
                 map.on('resize', () => this.resize());
+                map.on('move', () => this.draw());  // Continuous drawing during pan
 
                 this.initializeParticles();
             },
 
             onRemove: (map) => {
                 L.DomUtil.remove(this.canvas);
+                map.off('viewreset', this.reset);
                 map.off('moveend', this.reset);
+                map.off('zoomend', this.reset);
                 map.off('resize', this.resize);
+                map.off('move', this.draw);
                 this.stopAnimation();
             }
         });
