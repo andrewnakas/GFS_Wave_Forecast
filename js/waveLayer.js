@@ -10,7 +10,7 @@ class WaveVelocityLayer {
         this.canvas = null;
         this.ctx = null;
         this.particles = [];
-        this.maxParticles = 800;  // Reduced from 3000 for better performance
+        this.maxParticles = 300;  // Aggressively reduced for smooth 60 FPS
         this.animationFrame = null;
         this.vectorScale = 5;
         this.showVectors = true;
@@ -147,8 +147,8 @@ class WaveVelocityLayer {
 
         if (!this.waveDataCache) return;
 
-        // Draw wave vectors (less frequently)
-        if (this.showVectors && this.frameSkip % 3 === 0) {
+        // Draw wave vectors (much less frequently for maximum performance)
+        if (this.showVectors && this.frameSkip % 5 === 0) {
             this.drawVectors(this.waveDataCache, bounds);
         }
 
@@ -162,7 +162,7 @@ class WaveVelocityLayer {
      * Draw wave vectors as arrows
      */
     drawVectors(waveData, bounds) {
-        const spacing = 80; // Increased from 50 for better performance
+        const spacing = 120; // Aggressively increased for maximum performance
 
         // Calculate start positions to center the grid
         const startX = spacing / 2;
