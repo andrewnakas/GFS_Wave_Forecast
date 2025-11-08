@@ -290,9 +290,26 @@ class WaveVelocityLayer {
 
             // Check if particle is on land or out of bounds
             const isOnLand = this.dataFetcher.isLand(particle.lat, particle.lon);
+            const isOutOfBounds = !bounds.contains([particle.lat, particle.lon]);
 
-            // Reset particle if too old, out of bounds, or on land
-            if (particle.age > particle.maxAge || !bounds.contains([particle.lat, particle.lon]) || isOnLand) {
+            // Skip drawing if particle is on land
+            if (isOnLand) {
+                // Find a valid ocean location
+                let attempts = 0;
+                do {
+                    particle.lat = bounds.getSouth() + Math.random() * (bounds.getNorth() - bounds.getSouth());
+                    particle.lon = bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest());
+                    attempts++;
+                } while (this.dataFetcher.isLand(particle.lat, particle.lon) && attempts < 10);
+
+                particle.age = 0;
+                particle.maxAge = 50 + Math.random() * 50;
+                particle.wave = null;  // Force wave update on reset
+                continue;  // Skip drawing this particle
+            }
+
+            // Reset particle if too old or out of bounds
+            if (particle.age > particle.maxAge || isOutOfBounds) {
                 // Find a valid ocean location
                 let attempts = 0;
                 do {
