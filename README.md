@@ -5,6 +5,8 @@ An interactive web-based visualization of Global Forecast System (GFS) wave data
 ![GFS Wave Forecast](https://img.shields.io/badge/Data-NOAA%20GFS%20Wave-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+**[🌊 View Live Demo](https://andrewnakas.github.io/GFS_Wave_Forecast/)** ← Try it now!
+
 ## Features
 
 - **Real-time GFS wave forecast visualization** - Access the latest wave forecasts from NOAA
@@ -17,11 +19,17 @@ An interactive web-based visualization of Global Forecast System (GFS) wave data
 
 ## Quick Start
 
-The easiest way to get started is to use the built-in sample data:
+### Option 1: View Online (Easiest!)
+
+**Just visit the live demo:** [https://andrewnakas.github.io/GFS_Wave_Forecast/](https://andrewnakas.github.io/GFS_Wave_Forecast/)
+
+The app is automatically deployed via GitHub Actions and works immediately in your browser with sample wave data.
+
+### Option 2: Run Locally
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
+git clone https://github.com/andrewnakas/GFS_Wave_Forecast.git
 cd GFS_Wave_Forecast
 
 # Start the server
@@ -169,6 +177,35 @@ Note: The data fetcher will fall back to generating sample data if:
 - Close other browser tabs
 - Zoom to a specific region instead of viewing the whole globe
 
+## Deployment
+
+### GitHub Pages (Automatic)
+
+This project is configured for automatic deployment to GitHub Pages using GitHub Actions.
+
+**To enable for your fork:**
+
+1. Go to your repository Settings → Pages
+2. Under "Build and deployment":
+   - Source: Select "GitHub Actions"
+3. Push to `main` or `master` branch
+4. The workflow will automatically:
+   - Attempt to fetch latest GFS data from NOAA
+   - Fall back to sample data if fetch fails
+   - Deploy to GitHub Pages
+5. Your site will be live at: `https://[your-username].github.io/GFS_Wave_Forecast/`
+
+**Manual deployment trigger:**
+- Go to Actions tab → "Deploy to GitHub Pages" → "Run workflow"
+
+### Other Hosting Options
+
+The application is purely static HTML/CSS/JavaScript and can be deployed to:
+- **Netlify**: Drag and drop the project folder
+- **Vercel**: Connect your GitHub repo
+- **GitHub Codespaces**: Works out of the box
+- **Any static host**: Just upload the files
+
 ## Future Enhancements
 
 - [ ] Add backend API for automated data updates
@@ -179,6 +216,8 @@ Note: The data fetcher will fall back to generating sample data if:
 - [ ] Export capabilities (images, data)
 - [ ] Mobile-optimized interface
 - [ ] Integration with weather forecast data
+- [x] GitHub Actions deployment
+- [x] GitHub Pages hosting
 
 ## Contributing
 
