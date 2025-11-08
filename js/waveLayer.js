@@ -44,23 +44,23 @@ class WaveVelocityLayer {
 
                 map.getPanes().overlayPane.appendChild(this.canvas);
 
-                // Listen to all map movement events for proper rendering
-                map.on('viewreset', () => this.reset());
-                map.on('moveend', () => this.reset());
-                map.on('zoomend', () => this.reset());
+                // Listen to map movement events for proper rendering
+                map.on('viewreset', () => this.redraw());
+                map.on('moveend', () => this.redraw());
+                map.on('zoomend', () => this.redraw());
                 map.on('resize', () => this.resize());
-                map.on('move', () => this.draw());  // Continuous drawing during pan
+                map.on('move', () => this.redraw());  // Continuous drawing during pan
 
                 this.initializeParticles();
             },
 
             onRemove: (map) => {
                 L.DomUtil.remove(this.canvas);
-                map.off('viewreset', this.reset);
-                map.off('moveend', this.reset);
-                map.off('zoomend', this.reset);
+                map.off('viewreset', this.redraw);
+                map.off('moveend', this.redraw);
+                map.off('zoomend', this.redraw);
                 map.off('resize', this.resize);
-                map.off('move', this.draw);
+                map.off('move', this.redraw);
                 this.stopAnimation();
             }
         });
@@ -76,14 +76,17 @@ class WaveVelocityLayer {
         const size = this.map.getSize();
         this.canvas.width = size.x;
         this.canvas.height = size.y;
-        this.initializeParticles();
+        // Don't reinitialize particles, just redraw at new positions
+        this.redraw();
     }
 
     /**
-     * Reset layer
+     * Redraw canvas (without resetting particles)
      */
-    reset() {
-        this.initializeParticles();
+    redraw() {
+        // Just redraw particles at their current geographic positions
+        // Don't reset them
+        this.draw();
     }
 
     /**

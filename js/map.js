@@ -12,6 +12,7 @@ class WaveForecastApp {
         this.playInterval = null;
         this.currentTimeIndex = 0;
         this.forecastChart = null;  // Chart.js instance for wave forecast
+        this.forecastMarker = null;  // Marker showing forecast location
 
         this.init();
     }
@@ -131,14 +132,29 @@ class WaveForecastApp {
             const lat = e.latlng.lat;
             const lon = e.latlng.lng;
 
+            // Remove previous forecast marker if it exists
+            if (this.forecastMarker) {
+                this.map.removeLayer(this.forecastMarker);
+            }
+
             // Get wave data at clicked location
             const wave = this.dataFetcher.getWaveAtLocation(lat, lon, this.currentTimeIndex);
 
             if (wave) {
-                // Show popup with wave information
+                // Add a marker to show forecast location
+                this.forecastMarker = L.circleMarker([lat, lon], {
+                    radius: 8,
+                    fillColor: '#64b5f6',
+                    color: '#ffffff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(this.map);
+
+                // Bind popup to marker
                 const content = `
                     <div style="min-width: 200px;">
-                        <h3 style="margin: 0 0 10px 0; color: #64b5f6;">Wave Information</h3>
+                        <h3 style="margin: 0 0 10px 0; color: #64b5f6;">📍 Forecast Location</h3>
                         <p style="margin: 5px 0;"><strong>Height:</strong> ${wave.height.toFixed(2)} m</p>
                         <p style="margin: 5px 0;"><strong>Direction:</strong> ${wave.direction.toFixed(0)}° (${this.getDirectionName(wave.direction)})</p>
                         <p style="margin: 5px 0;"><strong>Period:</strong> ${wave.period.toFixed(1)} s</p>
@@ -146,10 +162,7 @@ class WaveForecastApp {
                     </div>
                 `;
 
-                L.popup()
-                    .setLatLng(e.latlng)
-                    .setContent(content)
-                    .openOn(this.map);
+                this.forecastMarker.bindPopup(content).openPopup();
 
                 // Update wave info panel
                 this.updateWaveInfo(wave, lat, lon);
