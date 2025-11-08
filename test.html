@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GFS Wave Forecast - Quick Test</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>GFS Wave Forecast Visualization - Quick Test</h1>
+            <div id="status">Loading...</div>
+        </header>
+        <div id="map"></div>
+        <div id="control-panel">
+            <div class="control-section">
+                <h3>Forecast Time</h3>
+                <div id="time-display">--</div>
+                <input type="range" id="time-slider" min="0" max="100" value="0" step="1">
+                <div class="time-controls">
+                    <button id="play-btn">▶ Play</button>
+                    <button id="pause-btn" style="display:none;">⏸ Pause</button>
+                    <button id="reset-btn">⏮ Reset</button>
+                </div>
+            </div>
+            <div class="control-section">
+                <h3>Layer Options</h3>
+                <label>
+                    <input type="checkbox" id="toggle-vectors" checked>
+                    Show Wave Vectors
+                </label>
+                <label>
+                    <input type="checkbox" id="toggle-particles" checked>
+                    Show Particle Animation
+                </label>
+                <div class="control-group">
+                    <label for="vector-scale">Vector Scale:</label>
+                    <input type="range" id="vector-scale" min="1" max="10" value="5" step="0.5">
+                    <span id="vector-scale-value">5</span>
+                </div>
+            </div>
+            <div class="control-section">
+                <h3>Wave Info</h3>
+                <div id="wave-info">
+                    <p>Click on map for wave data</p>
+                </div>
+            </div>
+            <div class="control-section">
+                <h3>Legend</h3>
+                <div id="legend">
+                    <div class="legend-item">
+                        <div class="legend-gradient"></div>
+                        <div class="legend-labels">
+                            <span>0m</span>
+                            <span>2m</span>
+                            <span>4m</span>
+                            <span>6m</span>
+                            <span>8m+</span>
+                        </div>
+                    </div>
+                    <p class="legend-description">Wave Height</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/dataFetcher.js"></script>
+    <script src="js/waveLayer.js"></script>
+    <script src="js/map.js"></script>
+</body>
+</html>
