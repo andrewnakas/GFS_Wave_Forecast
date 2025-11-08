@@ -13,8 +13,8 @@ class WaveVelocityLayer {
         this.maxParticles = 300;  // Aggressively reduced for smooth 60 FPS
         this.animationFrame = null;
         this.vectorScale = 5;
-        this.showVectors = true;
-        this.showParticles = true;
+        this.showVectors = false;  // Disabled by default for instant loading
+        this.showParticles = false;  // Disabled by default for instant loading
         this.frameSkip = 0;  // For throttling animation
         this.waveDataCache = null;  // Cache wave data
         this.cacheTimeIndex = -1;  // Track when cache is stale
