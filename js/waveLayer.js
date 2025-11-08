@@ -248,7 +248,7 @@ class WaveVelocityLayer {
      */
     updateAndDrawParticles(waveData, bounds) {
         const ctx = this.ctx;
-        const speed = 0.002;
+        const speed = 0.015;  // Increased for longer wave movement
 
         // Batch drawing operations for better performance
         ctx.save();
@@ -270,7 +270,7 @@ class WaveVelocityLayer {
                     );
                 }
 
-                // Update particle position
+                // Update particle position - move in wave direction
                 particle.lat += particle.vector.v * speed;
                 particle.lon += particle.vector.u * speed;
             }
@@ -278,10 +278,19 @@ class WaveVelocityLayer {
             // Age particle
             particle.age++;
 
-            // Reset particle if too old or out of bounds
-            if (particle.age > particle.maxAge || !bounds.contains([particle.lat, particle.lon])) {
-                particle.lat = bounds.getSouth() + Math.random() * (bounds.getNorth() - bounds.getSouth());
-                particle.lon = bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest());
+            // Check if particle is on land or out of bounds
+            const isOnLand = this.dataFetcher.isLand(particle.lat, particle.lon);
+
+            // Reset particle if too old, out of bounds, or on land
+            if (particle.age > particle.maxAge || !bounds.contains([particle.lat, particle.lon]) || isOnLand) {
+                // Find a valid ocean location
+                let attempts = 0;
+                do {
+                    particle.lat = bounds.getSouth() + Math.random() * (bounds.getNorth() - bounds.getSouth());
+                    particle.lon = bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest());
+                    attempts++;
+                } while (this.dataFetcher.isLand(particle.lat, particle.lon) && attempts < 10);
+
                 particle.age = 0;
                 particle.maxAge = 50 + Math.random() * 50;
                 particle.wave = null;  // Force wave update on reset
@@ -295,16 +304,18 @@ class WaveVelocityLayer {
             ctx.fillStyle = particle.wave ? this.getColorForHeight(particle.wave.height) : '#64b5f6';
             ctx.globalAlpha = alpha * 0.7;
 
-            // Draw elongated wave-like shape
+            // Draw elongated wave-like shape moving broadside (perpendicular to direction)
             if (particle.vector) {
                 // Calculate direction angle
                 const angle = Math.atan2(particle.vector.v, particle.vector.u);
-                const waveLength = 6 + (particle.wave ? particle.wave.height * 2 : 3);
-                const waveWidth = 2;
+                // Rotate 90 degrees to move broadside like a wave crest
+                const waveAngle = angle + Math.PI / 2;
+                const waveLength = 12 + (particle.wave ? particle.wave.height * 3 : 6);
+                const waveWidth = 3;
 
                 ctx.save();
                 ctx.translate(point.x, point.y);
-                ctx.rotate(angle);
+                ctx.rotate(waveAngle);
                 ctx.fillRect(-waveLength/2, -waveWidth/2, waveLength, waveWidth);
                 ctx.restore();
             } else {

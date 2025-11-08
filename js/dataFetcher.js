@@ -52,8 +52,8 @@ class GFSDataFetcher {
         const timeSteps = [];
         const now = new Date();
 
-        // Generate 48 hours of forecast at 3-hour intervals
-        for (let i = 0; i < 17; i++) {
+        // Generate 10 days of forecast at 3-hour intervals (80 timesteps)
+        for (let i = 0; i < 80; i++) {
             const forecastTime = new Date(now.getTime() + i * 3 * 60 * 60 * 1000);
             timeSteps.push({
                 time: forecastTime.toISOString(),
@@ -114,18 +114,59 @@ class GFSDataFetcher {
     }
 
     /**
-     * Simple ocean check (very simplified)
+     * Check if location is on land (improved land masking)
+     */
+    isLand(lat, lon) {
+        // North America
+        if (lat > 15 && lat < 72 && lon > -170 && lon < -50) return true;
+
+        // South America
+        if (lat > -55 && lat < 13 && lon > -82 && lon < -35) return true;
+
+        // Europe
+        if (lat > 35 && lat < 71 && lon > -10 && lon < 40) return true;
+
+        // Africa
+        if (lat > -35 && lat < 37 && lon > -18 && lon < 52) return true;
+
+        // Asia (main landmass)
+        if (lat > 5 && lat < 75 && lon > 40 && lon < 150) return true;
+
+        // Australia
+        if (lat > -45 && lat < -10 && lon > 110 && lon < 155) return true;
+
+        // Greenland
+        if (lat > 59 && lat < 84 && lon > -75 && lon < -10) return true;
+
+        // Antarctica
+        if (lat < -60) return true;
+
+        // Japan
+        if (lat > 30 && lat < 46 && lon > 128 && lon < 146) return true;
+
+        // New Zealand
+        if (lat > -48 && lat < -34 && lon > 165 && lon < 180) return true;
+
+        // Southeast Asia islands (simplified)
+        if (lat > -10 && lat < 20 && lon > 95 && lon < 125) return true;
+
+        // Central America
+        if (lat > 7 && lat < 22 && lon > -92 && lon < -77) return true;
+
+        // Caribbean islands (simplified)
+        if (lat > 10 && lat < 27 && lon > -85 && lon < -60) return true;
+
+        // Mediterranean (simplified)
+        if (lat > 30 && lat < 46 && lon > 0 && lon < 42) return true;
+
+        return false;
+    }
+
+    /**
+     * Check if location is ocean
      */
     isOcean(lat, lon) {
-        // Simplified: exclude some obvious land masses
-        // In reality, this would use proper land/sea mask
-
-        // North America
-        if (lat > 25 && lat < 50 && lon > -125 && lon < -65) return false;
-        // Europe/Asia landmass (simplified)
-        if (lat > 35 && lat < 55 && lon > -10 && lon < 50) return false;
-
-        return true;
+        return !this.isLand(lat, lon);
     }
 
     /**
