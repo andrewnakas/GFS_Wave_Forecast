@@ -10,11 +10,14 @@ class WaveVelocityLayer {
         this.canvas = null;
         this.ctx = null;
         this.particles = [];
-        this.maxParticles = 3000;
+        this.maxParticles = 800;  // Reduced from 3000 for better performance
         this.animationFrame = null;
         this.vectorScale = 5;
         this.showVectors = true;
         this.showParticles = true;
+        this.frameSkip = 0;  // For throttling animation
+        this.waveDataCache = null;  // Cache wave data
+        this.cacheTimeIndex = -1;  // Track when cache is stale
 
         this.initializeCanvas();
     }
@@ -123,23 +126,35 @@ class WaveVelocityLayer {
     draw() {
         if (!this.ctx || !this.canvas) return;
 
+        // Frame skipping for better performance - only draw every other frame
+        this.frameSkip++;
+        if (this.frameSkip % 2 !== 0 && !this.showVectors) {
+            // Skip this frame for particle-only mode
+            return;
+        }
+
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         const bounds = this.map.getBounds();
         const timeIndex = this.dataFetcher.currentTimeIndex;
-        const waveData = this.dataFetcher.getDataForTime(timeIndex);
 
-        if (!waveData) return;
-
-        // Draw wave vectors
-        if (this.showVectors) {
-            this.drawVectors(waveData, bounds);
+        // Cache wave data to avoid regenerating it every frame
+        if (this.cacheTimeIndex !== timeIndex) {
+            this.waveDataCache = this.dataFetcher.getDataForTime(timeIndex);
+            this.cacheTimeIndex = timeIndex;
         }
 
-        // Draw and update particles
+        if (!this.waveDataCache) return;
+
+        // Draw wave vectors (less frequently)
+        if (this.showVectors && this.frameSkip % 3 === 0) {
+            this.drawVectors(this.waveDataCache, bounds);
+        }
+
+        // Draw and update particles (every frame for smooth animation)
         if (this.showParticles) {
-            this.updateAndDrawParticles(waveData, bounds);
+            this.updateAndDrawParticles(this.waveDataCache, bounds);
         }
     }
 
@@ -147,16 +162,21 @@ class WaveVelocityLayer {
      * Draw wave vectors as arrows
      */
     drawVectors(waveData, bounds) {
-        const spacing = 50; // pixels between vectors
+        const spacing = 80; // Increased from 50 for better performance
 
-        for (let x = 0; x < this.canvas.width; x += spacing) {
-            for (let y = 0; y < this.canvas.height; y += spacing) {
+        // Calculate start positions to center the grid
+        const startX = spacing / 2;
+        const startY = spacing / 2;
+
+        for (let x = startX; x < this.canvas.width; x += spacing) {
+            for (let y = startY; y < this.canvas.height; y += spacing) {
                 const point = this.map.containerPointToLatLng([x, y]);
+
+                // Check if point is in bounds first (faster check)
+                if (!bounds.contains(point)) continue;
+
                 const lat = point.lat;
                 const lon = point.lng;
-
-                // Check if point is in bounds
-                if (!bounds.contains(point)) continue;
 
                 // Get wave data at this point
                 const wave = this.dataFetcher.getWaveAtLocation(lat, lon);
@@ -228,21 +248,31 @@ class WaveVelocityLayer {
      */
     updateAndDrawParticles(waveData, bounds) {
         const ctx = this.ctx;
+        const speed = 0.002;
 
-        for (let particle of this.particles) {
-            // Get wave at particle location
-            const wave = this.dataFetcher.getWaveAtLocation(particle.lat, particle.lon);
+        // Batch drawing operations for better performance
+        ctx.save();
 
-            if (wave) {
-                // Update particle position based on wave
-                const vector = this.dataFetcher.directionToVector(
-                    wave.direction,
-                    wave.height
-                );
+        for (let i = 0; i < this.particles.length; i++) {
+            const particle = this.particles[i];
 
-                const speed = 0.002;
-                particle.lat += vector.v * speed;
-                particle.lon += vector.u * speed;
+            // Only update wave data every 5 frames per particle for performance
+            if (!particle.wave || this.frameSkip % 5 === i % 5) {
+                particle.wave = this.dataFetcher.getWaveAtLocation(particle.lat, particle.lon);
+            }
+
+            if (particle.wave) {
+                // Cache the vector conversion
+                if (!particle.vector || this.frameSkip % 5 === i % 5) {
+                    particle.vector = this.dataFetcher.directionToVector(
+                        particle.wave.direction,
+                        particle.wave.height
+                    );
+                }
+
+                // Update particle position
+                particle.lat += particle.vector.v * speed;
+                particle.lon += particle.vector.u * speed;
             }
 
             // Age particle
@@ -254,20 +284,20 @@ class WaveVelocityLayer {
                 particle.lon = bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest());
                 particle.age = 0;
                 particle.maxAge = 50 + Math.random() * 50;
+                particle.wave = null;  // Force wave update on reset
+                continue;
             }
 
-            // Draw particle
+            // Draw particle (batched)
             const point = this.map.latLngToContainerPoint([particle.lat, particle.lon]);
             const alpha = 1 - (particle.age / particle.maxAge);
 
-            ctx.save();
-            ctx.fillStyle = wave ? this.getColorForHeight(wave.height) : '#64b5f6';
+            ctx.fillStyle = particle.wave ? this.getColorForHeight(particle.wave.height) : '#64b5f6';
             ctx.globalAlpha = alpha * 0.6;
-            ctx.beginPath();
-            ctx.arc(point.x, point.y, 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
+            ctx.fillRect(point.x - 1, point.y - 1, 2, 2);  // Use fillRect instead of arc for speed
         }
+
+        ctx.restore();
     }
 
     /**
