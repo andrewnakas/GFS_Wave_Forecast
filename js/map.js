@@ -11,6 +11,7 @@ class WaveForecastApp {
         this.isPlaying = false;
         this.playInterval = null;
         this.currentTimeIndex = 0;
+        this.forecastChart = null;  // Chart.js instance for wave forecast
 
         this.init();
     }
@@ -152,9 +153,14 @@ class WaveForecastApp {
 
                 // Update wave info panel
                 this.updateWaveInfo(wave, lat, lon);
+
+                // Show wave forecast chart
+                this.showWaveForecastChart(lat, lon);
             } else {
                 // Update wave info panel to show no data
                 document.getElementById('wave-info').innerHTML = '<p>No wave data at this location</p>';
+                // Hide chart section
+                document.getElementById('forecast-chart-section').style.display = 'none';
             }
         });
     }
@@ -170,6 +176,150 @@ class WaveForecastApp {
             <p><strong>Period:</strong> ${wave.period.toFixed(1)} s</p>
             <p><strong>Location:</strong><br>${lat.toFixed(2)}°, ${lon.toFixed(2)}°</p>
         `;
+    }
+
+    /**
+     * Show wave forecast chart for a location
+     */
+    showWaveForecastChart(lat, lon) {
+        const timeSteps = this.dataFetcher.getTimeSteps();
+        const waveHeights = [];
+        const wavePeriods = [];
+        const labels = [];
+
+        // Collect forecast data for all time steps
+        for (let i = 0; i < timeSteps.length; i++) {
+            const wave = this.dataFetcher.getWaveAtLocation(lat, lon, i);
+            if (wave) {
+                waveHeights.push(wave.height);
+                wavePeriods.push(wave.period);
+                labels.push(timeSteps[i].displayTime);
+            }
+        }
+
+        // Show chart section
+        document.getElementById('forecast-chart-section').style.display = 'block';
+
+        // Destroy existing chart if it exists
+        if (this.forecastChart) {
+            this.forecastChart.destroy();
+        }
+
+        // Create new chart
+        const ctx = document.getElementById('wave-forecast-chart').getContext('2d');
+        this.forecastChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Wave Height (m)',
+                        data: waveHeights,
+                        borderColor: '#64b5f6',
+                        backgroundColor: 'rgba(100, 181, 246, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Wave Period (s)',
+                        data: wavePeriods,
+                        borderColor: '#ffa726',
+                        backgroundColor: 'rgba(255, 167, 38, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#fff',
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: `Forecast at ${lat.toFixed(2)}°, ${lon.toFixed(2)}°`,
+                        color: '#64b5f6',
+                        font: {
+                            size: 13
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#999',
+                            font: {
+                                size: 9
+                            },
+                            maxRotation: 45,
+                            minRotation: 45
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Height (m)',
+                            color: '#64b5f6',
+                            font: {
+                                size: 11
+                            }
+                        },
+                        ticks: {
+                            color: '#64b5f6',
+                            font: {
+                                size: 10
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(100, 181, 246, 0.1)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Period (s)',
+                            color: '#ffa726',
+                            font: {
+                                size: 11
+                            }
+                        },
+                        ticks: {
+                            color: '#ffa726',
+                            font: {
+                                size: 10
+                            }
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        }
+                    }
+                }
+            }
+        });
     }
 
     /**

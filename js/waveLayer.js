@@ -10,7 +10,7 @@ class WaveVelocityLayer {
         this.canvas = null;
         this.ctx = null;
         this.particles = [];
-        this.maxParticles = 300;  // Aggressively reduced for smooth 60 FPS
+        this.maxParticles = 1500;  // Increased for better wave visualization
         this.animationFrame = null;
         this.vectorScale = 5;
         this.showVectors = false;  // Disabled by default for instant loading
@@ -288,13 +288,29 @@ class WaveVelocityLayer {
                 continue;
             }
 
-            // Draw particle (batched)
+            // Draw particle as wave-like shape (elongated)
             const point = this.map.latLngToContainerPoint([particle.lat, particle.lon]);
             const alpha = 1 - (particle.age / particle.maxAge);
 
             ctx.fillStyle = particle.wave ? this.getColorForHeight(particle.wave.height) : '#64b5f6';
-            ctx.globalAlpha = alpha * 0.6;
-            ctx.fillRect(point.x - 1, point.y - 1, 2, 2);  // Use fillRect instead of arc for speed
+            ctx.globalAlpha = alpha * 0.7;
+
+            // Draw elongated wave-like shape
+            if (particle.vector) {
+                // Calculate direction angle
+                const angle = Math.atan2(particle.vector.v, particle.vector.u);
+                const waveLength = 6 + (particle.wave ? particle.wave.height * 2 : 3);
+                const waveWidth = 2;
+
+                ctx.save();
+                ctx.translate(point.x, point.y);
+                ctx.rotate(angle);
+                ctx.fillRect(-waveLength/2, -waveWidth/2, waveLength, waveWidth);
+                ctx.restore();
+            } else {
+                // Fallback to simple circle
+                ctx.fillRect(point.x - 2, point.y - 2, 4, 4);
+            }
         }
 
         ctx.restore();
