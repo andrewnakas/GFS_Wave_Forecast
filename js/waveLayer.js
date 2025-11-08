@@ -96,14 +96,34 @@ class WaveVelocityLayer {
         this.particles = [];
         const bounds = this.map.getBounds();
 
+        // Store initial bounds for respawning reference
+        this.initialBounds = bounds;
+
         for (let i = 0; i < this.maxParticles; i++) {
-            this.particles.push({
-                lat: bounds.getSouth() + Math.random() * (bounds.getNorth() - bounds.getSouth()),
-                lon: bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest()),
-                age: Math.random() * 100,
-                maxAge: 50 + Math.random() * 50
-            });
+            let particle = this.createParticleInBounds(bounds);
+            this.particles.push(particle);
         }
+    }
+
+    /**
+     * Create a single particle within given bounds, avoiding land
+     */
+    createParticleInBounds(bounds) {
+        let lat, lon;
+        let attempts = 0;
+
+        do {
+            lat = bounds.getSouth() + Math.random() * (bounds.getNorth() - bounds.getSouth());
+            lon = bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest());
+            attempts++;
+        } while (this.dataFetcher.isLand(lat, lon) && attempts < 20);
+
+        return {
+            lat: lat,
+            lon: lon,
+            age: Math.random() * 100,
+            maxAge: 50 + Math.random() * 50
+        };
     }
 
     /**
@@ -300,35 +320,52 @@ class WaveVelocityLayer {
             const isOnLand = this.dataFetcher.isLand(particle.lat, particle.lon);
             const isOutOfBounds = !expandedBounds.contains([particle.lat, particle.lon]);
 
-            // Skip drawing if particle is on land
+            // If particle is on land, respawn it at a nearby ocean location
             if (isOnLand) {
-                // Find a valid ocean location
-                let attempts = 0;
-                do {
-                    particle.lat = bounds.getSouth() + Math.random() * (bounds.getNorth() - bounds.getSouth());
-                    particle.lon = bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest());
-                    attempts++;
-                } while (this.dataFetcher.isLand(particle.lat, particle.lon) && attempts < 10);
+                // Try to find ocean near the particle's current position
+                let newLat = particle.lat;
+                let newLon = particle.lon;
+                let found = false;
 
+                // Search in a spiral pattern around current position
+                for (let radius = 0.5; radius < 10 && !found; radius += 0.5) {
+                    for (let angle = 0; angle < 360; angle += 30) {
+                        const testLat = particle.lat + radius * Math.cos(angle * Math.PI / 180);
+                        const testLon = particle.lon + radius * Math.sin(angle * Math.PI / 180);
+
+                        if (!this.dataFetcher.isLand(testLat, testLon)) {
+                            newLat = testLat;
+                            newLon = testLon;
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+
+                particle.lat = newLat;
+                particle.lon = newLon;
                 particle.age = 0;
                 particle.maxAge = 50 + Math.random() * 50;
-                particle.wave = null;  // Force wave update on reset
-                continue;  // Skip drawing this particle
+                particle.wave = null;
+                continue;  // Skip drawing this frame
             }
 
-            // Reset particle if too old or out of bounds
+            // Reset particle if too old or way out of bounds
             if (particle.age > particle.maxAge || isOutOfBounds) {
-                // Find a valid ocean location
+                // Only respawn within the expanded bounds to maintain stability
                 let attempts = 0;
-                do {
-                    particle.lat = bounds.getSouth() + Math.random() * (bounds.getNorth() - bounds.getSouth());
-                    particle.lon = bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest());
-                    attempts++;
-                } while (this.dataFetcher.isLand(particle.lat, particle.lon) && attempts < 10);
+                let newParticle;
 
+                do {
+                    newParticle = this.createParticleInBounds(expandedBounds);
+                    attempts++;
+                } while (attempts < 20);
+
+                particle.lat = newParticle.lat;
+                particle.lon = newParticle.lon;
                 particle.age = 0;
-                particle.maxAge = 50 + Math.random() * 50;
-                particle.wave = null;  // Force wave update on reset
+                particle.maxAge = newParticle.maxAge;
+                particle.wave = null;
                 continue;
             }
 
