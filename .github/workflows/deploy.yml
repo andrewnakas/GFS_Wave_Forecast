@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - claude/gfs-wave-current-forecast-011CUvvhwdZcCKGFDNJBhjsv  # Feature branch for testing
   workflow_dispatch:  # Allow manual trigger
 
 permissions:
