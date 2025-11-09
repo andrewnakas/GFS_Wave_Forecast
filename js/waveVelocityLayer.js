@@ -89,31 +89,30 @@ class WaveVelocityLayer {
         const width = size.x;
         const height = size.y;
 
-        // Get wave data for current time
-        const waveData = this.dataFetcher.getDataForTime(this.dataFetcher.currentTimeIndex);
-        if (!waveData || waveData.length === 0) {
-            console.warn('No wave data available');
-            return;
-        }
-
-        // Build velocity field grid
+        // Pre-allocate columns array
         const columns = [];
         const pointsPerColumn = Math.ceil(height / 4);
         const columnsCount = Math.ceil(width / 4);
 
+        // Build all columns in one go (fast with spatial indexing)
         for (let x = 0; x < columnsCount; x++) {
-            const column = [];
+            const column = new Array(pointsPerColumn);
+
             for (let y = 0; y < pointsPerColumn; y++) {
                 const px = x * 4;
                 const py = y * 4;
 
-                if (px >= width || py >= height) continue;
+                if (px >= width || py >= height) {
+                    column[y] = [0, 0, 0];
+                    continue;
+                }
 
                 const latLng = this.map.containerPointToLatLng([px, py]);
-                const wave = this.getWaveAtPoint(latLng.lat, latLng.lng, waveData);
+
+                // Fast O(1) grid lookup
+                const wave = this.dataFetcher.getWaveAtLocationFast(latLng.lat, latLng.lng);
 
                 if (wave && !this.dataFetcher.isLand(latLng.lat, latLng.lng)) {
-                    // Convert wave direction and height to velocity components
                     const vector = this.waveToVector(wave.direction, wave.height);
                     column[y] = [vector.u, vector.v, wave.height];
                 } else {
@@ -215,24 +214,6 @@ class WaveVelocityLayer {
         return [u, v, m];
     }
 
-    getWaveAtPoint(lat, lon, waveData) {
-        let nearest = null;
-        let minDist = Infinity;
-
-        for (const point of waveData) {
-            const dist = Math.sqrt(
-                Math.pow(point.lat - lat, 2) +
-                Math.pow(point.lon - lon, 2)
-            );
-
-            if (dist < minDist) {
-                minDist = dist;
-                nearest = point;
-            }
-        }
-
-        return nearest;
-    }
 
     waveToVector(direction, magnitude) {
         // Convert meteorological direction to velocity vector

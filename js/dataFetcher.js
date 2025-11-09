@@ -10,6 +10,9 @@ class GFSDataFetcher {
         this.data = null;
         this.currentTimeIndex = 0;
         this.timeSteps = [];
+        this.gridMap = null;
+        this.latStep = 4.0;
+        this.lonStep = 4.0;
     }
 
     /**
@@ -86,22 +89,23 @@ class GFSDataFetcher {
     }
 
     /**
-     * Generate wave grid data
+     * Generate wave grid data with spatial indexing
      */
     generateGridData() {
-        const grid = [];
-        const latStep = 4.0; // 4 degree resolution for maximum performance
+        const latStep = 4.0; // 4 degree resolution
         const lonStep = 4.0;
 
-        // Generate data for global ocean (simplified)
+        // Create a grid structure for O(1) lookups
+        const gridMap = new Map();
+
+        // Generate data for global ocean
         for (let lat = -60; lat <= 60; lat += latStep) {
             for (let lon = -180; lon < 180; lon += lonStep) {
-                // Skip land masses (simplified)
                 if (this.isOcean(lat, lon)) {
-                    grid.push({
+                    const key = this.getGridKey(lat, lon);
+                    gridMap.set(key, {
                         lat: lat,
                         lon: lon,
-                        // Generate realistic-looking wave data
                         height: this.generateWaveHeight(lat, lon),
                         direction: this.generateWaveDirection(lat, lon),
                         period: this.generateWavePeriod(lat, lon)
@@ -110,7 +114,33 @@ class GFSDataFetcher {
             }
         }
 
-        return grid;
+        // Store both map and array for different access patterns
+        this.gridMap = gridMap;
+        this.latStep = latStep;
+        this.lonStep = lonStep;
+
+        return Array.from(gridMap.values());
+    }
+
+    /**
+     * Get grid key for spatial indexing
+     */
+    getGridKey(lat, lon) {
+        const latIdx = Math.round(lat / this.latStep);
+        const lonIdx = Math.round(lon / this.lonStep);
+        return `${latIdx},${lonIdx}`;
+    }
+
+    /**
+     * Fast wave lookup using spatial grid
+     */
+    getWaveAtLocationFast(lat, lon) {
+        // Snap to nearest grid point
+        const latSnap = Math.round(lat / this.latStep) * this.latStep;
+        const lonSnap = Math.round(lon / this.lonStep) * this.lonStep;
+
+        const key = this.getGridKey(latSnap, lonSnap);
+        return this.gridMap.get(key) || null;
     }
 
     /**

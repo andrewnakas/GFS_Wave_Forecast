@@ -16,6 +16,9 @@ class WaveApp {
     }
 
     async init() {
+        // Update status
+        document.getElementById('time-display').textContent = 'Initializing...';
+
         // Initialize map with dark tiles
         this.map = L.map('map', {
             center: [20, -160],
@@ -33,10 +36,12 @@ class WaveApp {
         }).addTo(this.map);
 
         // Initialize data fetcher
+        document.getElementById('time-display').textContent = 'Loading wave data...';
         this.dataFetcher = new GFSDataFetcher();
         await this.dataFetcher.initialize();
 
         // Create velocity layer with leaflet-velocity options
+        document.getElementById('time-display').textContent = 'Building field...';
         this.velocityLayer = new WaveVelocityLayer(this.map, this.dataFetcher, {
             displayValues: true,
             maxVelocity: 10, // 10 m wave height max
@@ -53,6 +58,8 @@ class WaveApp {
 
         // Initial time display
         this.updateTimeDisplay();
+
+        console.log('Wave velocity visualization ready');
     }
 
     setupControls() {
