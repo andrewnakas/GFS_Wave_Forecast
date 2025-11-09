@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wave Velocity - Global Wave Forecast</title>
+    <title>Global Wave Velocity</title>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -28,12 +28,12 @@
             height: 100%;
         }
 
-        /* Minimal UI overlay */
+        /* Info panel */
         .info-panel {
             position: absolute;
             top: 10px;
             left: 10px;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.75);
             padding: 10px 15px;
             border-radius: 4px;
             font-size: 14px;
@@ -45,7 +45,6 @@
             font-size: 16px;
             font-weight: 400;
             margin-bottom: 5px;
-            color: #fff;
         }
 
         .info-panel p {
@@ -54,12 +53,12 @@
             margin: 0;
         }
 
-        /* Velocity indicator */
-        .velocity-display {
+        /* Wave height scale */
+        .velocity-scale {
             position: absolute;
             bottom: 30px;
             left: 10px;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.75);
             padding: 10px 15px;
             border-radius: 4px;
             font-size: 13px;
@@ -68,7 +67,7 @@
             min-width: 200px;
         }
 
-        .velocity-display .label {
+        .velocity-scale .label {
             color: rgba(255, 255, 255, 0.6);
             font-size: 11px;
             text-transform: uppercase;
@@ -112,7 +111,7 @@
             position: absolute;
             top: 10px;
             right: 10px;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.75);
             padding: 12px;
             border-radius: 4px;
             z-index: 1000;
@@ -206,11 +205,11 @@
     <!-- Info panel -->
     <div class="info-panel">
         <h1>Global Wave Forecast</h1>
-        <p>GFS WaveWatch III Model</p>
+        <p>Wave Velocity Visualization</p>
     </div>
 
-    <!-- Velocity indicator -->
-    <div class="velocity-display">
+    <!-- Wave height scale -->
+    <div class="velocity-scale">
         <div class="label">Wave Height (m)</div>
         <div class="velocity-gradient"></div>
         <div class="velocity-labels">
@@ -225,7 +224,7 @@
     <!-- Time controls -->
     <div class="time-controls">
         <span class="label">Forecast Time</span>
-        <div class="time-display" id="time-display">Loading...</div>
+        <div class="time-display" id="time-display">Initializing...</div>
         <input type="range" id="time-slider" min="0" max="79" value="0" step="1">
         <div class="button-group">
             <button id="play-btn">▶ Play</button>
@@ -237,9 +236,10 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Application JS -->
-    <script src="js/dataFetcher.js"></script>
-    <script src="js/waveVelocityLayer.js"></script>
-    <script src="js/app.js"></script>
+    <!-- Application JS (order matters!) -->
+    <script src="js/waveData.js"></script>
+    <script src="js/velocityField.js"></script>
+    <script src="js/particleSystem.js"></script>
+    <script src="js/waveVelocityApp.js"></script>
 </body>
 </html>
