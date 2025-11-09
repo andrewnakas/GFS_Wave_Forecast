@@ -90,9 +90,14 @@ class WaveVelocityApp {
         this.canvas.style.top = '0';
         this.canvas.style.left = '0';
         this.canvas.style.pointerEvents = 'none';
-        this.canvas.style.zIndex = '400';
+        this.canvas.style.zIndex = '1000';
+        this.canvas.className = 'wave-velocity-canvas';
 
-        container.appendChild(this.canvas);
+        // Append to map panes for proper layering
+        const pane = this.map.getPanes().overlayPane;
+        pane.appendChild(this.canvas);
+
+        console.log(`Canvas created: ${size.x}x${size.y}, appended to map overlay pane`);
     }
 
     setupEventHandlers() {

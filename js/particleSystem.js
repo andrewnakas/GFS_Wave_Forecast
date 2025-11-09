@@ -141,8 +141,13 @@ class ParticleSystem {
         ctx.lineWidth = this.options.lineWidth;
         ctx.globalAlpha = 1.0;
 
+        let drawnCount = 0;
+
         for (let i = 0; i < particles.length; i++) {
             const p = particles[i];
+
+            // Skip if no movement
+            if (p.x === p.xt && p.y === p.yt) continue;
 
             // Get color based on magnitude
             const colorIndex = Math.min(
@@ -156,6 +161,15 @@ class ParticleSystem {
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p.xt, p.yt);
             ctx.stroke();
+
+            drawnCount++;
+        }
+
+        // Log first few frames to verify drawing
+        if (!this.drawCount) this.drawCount = 0;
+        this.drawCount++;
+        if (this.drawCount <= 3) {
+            console.log(`Frame ${this.drawCount}: Drew ${drawnCount} particles`);
         }
     }
 
