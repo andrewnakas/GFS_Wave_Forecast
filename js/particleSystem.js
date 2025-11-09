@@ -100,20 +100,18 @@ class ParticleSystem {
                 continue;
             }
 
-            // Update position
+            // Calculate next position (don't update x,y yet - do it after drawing)
             p.xt = p.x + v.u;
             p.yt = p.y + v.v;
             p.m = v.m;
 
-            // Check if new position is valid
-            if (this.field.isValid(Math.round(p.xt), Math.round(p.yt))) {
-                p.x = p.xt;
-                p.y = p.yt;
-                movedCount++;
-            } else {
+            // Check if next position is valid
+            if (!this.field.isValid(Math.round(p.xt), Math.round(p.yt))) {
                 // Hit land or boundary, respawn
                 Object.assign(p, this.createParticle());
                 respawnedCount++;
+            } else {
+                movedCount++;
             }
         }
 
@@ -146,8 +144,12 @@ class ParticleSystem {
         for (let i = 0; i < particles.length; i++) {
             const p = particles[i];
 
-            // Skip if no movement
-            if (p.x === p.xt && p.y === p.yt) continue;
+            // Skip if no movement (but this should be rare now)
+            const dx = p.xt - p.x;
+            const dy = p.yt - p.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 0.01) continue;
 
             // Get color based on magnitude
             const colorIndex = Math.min(
@@ -162,14 +164,18 @@ class ParticleSystem {
             ctx.lineTo(p.xt, p.yt);
             ctx.stroke();
 
+            // NOW update position for next frame
+            p.x = p.xt;
+            p.y = p.yt;
+
             drawnCount++;
         }
 
         // Log first few frames to verify drawing
         if (!this.drawCount) this.drawCount = 0;
         this.drawCount++;
-        if (this.drawCount <= 3) {
-            console.log(`Frame ${this.drawCount}: Drew ${drawnCount} particles`);
+        if (this.drawCount <= 5) {
+            console.log(`Frame ${this.drawCount}: Drew ${drawnCount} particles, first particle moved ${dist.toFixed(2)}px`);
         }
     }
 
