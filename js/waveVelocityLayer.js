@@ -1,6 +1,6 @@
 /**
- * Wave Velocity Layer - Based on leaflet-velocity
- * Implements smooth particle flow visualization for wave data
+ * Wave Velocity Layer - Faithful implementation of leaflet-velocity for wave data
+ * Based on https://github.com/onaci/leaflet-velocity
  */
 
 class WaveVelocityLayer {
@@ -8,16 +8,10 @@ class WaveVelocityLayer {
         this.map = map;
         this.dataFetcher = dataFetcher;
 
-        // Configuration matching leaflet-velocity
         this.options = Object.assign({
             displayValues: true,
-            displayOptions: {
-                velocityType: 'Wave',
-                displayPosition: 'bottomleft',
-                displayEmptyString: 'No wave data'
-            },
-            maxVelocity: 10, // m/s
-            velocityScale: 0.005, // Particle speed modifier
+            maxVelocity: 10,
+            velocityScale: 0.005,
             colorScale: [
                 "rgb(36,104,180)",
                 "rgb(60,157,194)",
@@ -36,31 +30,26 @@ class WaveVelocityLayer {
                 "rgb(180,0,35)"
             ],
             frameRate: 15,
-            particleMultiplier: 1/300, // Particle density
-            particleAge: 90, // Max age in frames
+            particleMultiplier: 1/300,
+            particleAge: 90,
             lineWidth: 2,
             opacity: 0.97
         }, options);
 
         this.canvas = null;
         this.ctx = null;
+        this.field = null;
         this.particles = [];
         this.animationFrame = null;
-        this.field = null;
-        this.colorStyles = [];
-        this.buckets = [];
+        this.then = Date.now();
 
-        this.initializeCanvas();
-        this.buildColorScale();
+        this.initCanvas();
     }
 
-    /**
-     * Initialize canvas overlay
-     */
-    initializeCanvas() {
+    initCanvas() {
         const CanvasLayer = L.Layer.extend({
             onAdd: (map) => {
-                this.canvas = L.DomUtil.create('canvas', 'wave-velocity-canvas');
+                this.canvas = L.DomUtil.create('canvas', 'leaflet-zoom-hide');
                 this.ctx = this.canvas.getContext('2d');
 
                 const size = map.getSize();
@@ -76,18 +65,17 @@ class WaveVelocityLayer {
 
                 map.on('moveend', () => this.reset());
                 map.on('resize', () => this.resize());
-                map.on('mousemove', (e) => this.onMouseMove(e));
 
                 this.buildField();
-                this.start();
             },
 
             onRemove: (map) => {
                 this.stop();
-                L.DomUtil.remove(this.canvas);
+                if (this.canvas && this.canvas.parentNode) {
+                    this.canvas.parentNode.removeChild(this.canvas);
+                }
                 map.off('moveend');
                 map.off('resize');
-                map.off('mousemove');
             }
         });
 
@@ -95,83 +83,126 @@ class WaveVelocityLayer {
         this.layer.addTo(this.map);
     }
 
-    /**
-     * Build wave field with bilinear interpolation
-     */
     buildField() {
         const bounds = this.map.getBounds();
-        const width = this.canvas.width;
-        const height = this.canvas.height;
+        const size = this.map.getSize();
+        const width = size.x;
+        const height = size.y;
 
-        const data = this.dataFetcher.getDataForTime(this.dataFetcher.currentTimeIndex);
-        if (!data) return null;
-
-        // Create interpolated field
-        const field = [];
-        const velocityScale = this.options.velocityScale;
-
-        for (let y = 0; y < height; y += 4) {
-            field[y] = [];
-            for (let x = 0; x < width; x += 4) {
-                const latLng = this.map.containerPointToLatLng([x, y]);
-                const wave = this.getInterpolatedWave(latLng.lat, latLng.lng, data);
-
-                if (wave) {
-                    // Convert wave direction to velocity vector
-                    const vector = this.directionToVector(wave.direction, wave.height);
-                    field[y][x] = [vector.u * velocityScale * 100, vector.v * velocityScale * 100, wave.height];
-                } else {
-                    field[y][x] = [0, 0, 0];
-                }
-            }
+        // Get wave data for current time
+        const waveData = this.dataFetcher.getDataForTime(this.dataFetcher.currentTimeIndex);
+        if (!waveData || waveData.length === 0) {
+            console.warn('No wave data available');
+            return;
         }
 
+        // Build velocity field grid
+        const columns = [];
+        const pointsPerColumn = Math.ceil(height / 4);
+        const columnsCount = Math.ceil(width / 4);
+
+        for (let x = 0; x < columnsCount; x++) {
+            const column = [];
+            for (let y = 0; y < pointsPerColumn; y++) {
+                const px = x * 4;
+                const py = y * 4;
+
+                if (px >= width || py >= height) continue;
+
+                const latLng = this.map.containerPointToLatLng([px, py]);
+                const wave = this.getWaveAtPoint(latLng.lat, latLng.lng, waveData);
+
+                if (wave && !this.dataFetcher.isLand(latLng.lat, latLng.lng)) {
+                    // Convert wave direction and height to velocity components
+                    const vector = this.waveToVector(wave.direction, wave.height);
+                    column[y] = [vector.u, vector.v, wave.height];
+                } else {
+                    column[y] = [0, 0, 0];
+                }
+            }
+            columns[x] = column;
+        }
+
+        // Create field object with interpolation
         this.field = {
+            bounds: bounds,
             width: width,
             height: height,
-            data: field,
-            interpolate: (x, y) => this.bilinearInterpolate(x, y, field, width, height),
-            randomize: (particle) => {
+            columns: columns,
+
+            // Get value at specific pixel coordinates
+            valueAt: (x, y) => {
+                if (x < 0 || x >= width || y < 0 || y >= height) {
+                    return null;
+                }
+
+                const column = Math.floor(x / 4);
+                const row = Math.floor(y / 4);
+
+                if (!columns[column] || !columns[column][row]) {
+                    return [0, 0, 0];
+                }
+
+                return columns[column][row];
+            },
+
+            // Bilinear interpolation
+            interpolate: (x, y) => {
+                const x0 = Math.floor(x / 4);
+                const y0 = Math.floor(y / 4);
+                const x1 = x0 + 1;
+                const y1 = y0 + 1;
+
+                if (!columns[x0] || !columns[x1]) {
+                    return [0, 0, 0];
+                }
+
+                const g00 = columns[x0][y0] || [0, 0, 0];
+                const g10 = columns[x1][y0] || [0, 0, 0];
+                const g01 = columns[x0][y1] || [0, 0, 0];
+                const g11 = columns[x1][y1] || [0, 0, 0];
+
+                // Interpolation weights
+                const fx = (x / 4) - x0;
+                const fy = (y / 4) - y0;
+
+                return this.bilinearInterpolate(fx, fy, g00, g10, g01, g11);
+            },
+
+            // Check if point is valid (not on land, within bounds)
+            isDefined: (x, y) => {
+                if (x < 0 || x >= width || y < 0 || y >= height) {
+                    return false;
+                }
+
+                const latLng = this.map.containerPointToLatLng([x, y]);
+                return !this.dataFetcher.isLand(latLng.lat, latLng.lng);
+            },
+
+            // Random position in field
+            randomize: (o = {}) => {
                 const x = Math.floor(Math.random() * width);
                 const y = Math.floor(Math.random() * height);
+
                 return {
                     x: x,
                     y: y,
                     xt: x,
                     yt: y,
-                    age: particle.age || 0,
-                    intensity: 0
+                    age: o.age !== undefined ? o.age : 0,
+                    m: 0
                 };
-            },
-            isValid: (x, y) => {
-                if (x < 0 || x >= width || y < 0 || y >= height) return false;
-                const latLng = this.map.containerPointToLatLng([x, y]);
-                return !this.dataFetcher.isLand(latLng.lat, latLng.lng);
             }
         };
+
+        // Start animation
+        this.start();
     }
 
-    /**
-     * Bilinear interpolation for smooth field
-     */
-    bilinearInterpolate(x, y, field, width, height) {
-        const x0 = Math.floor(x / 4) * 4;
-        const y0 = Math.floor(y / 4) * 4;
-        const x1 = Math.min(x0 + 4, width - 1);
-        const y1 = Math.min(y0 + 4, height - 1);
-
-        const fx = (x - x0) / 4;
-        const fy = (y - y0) / 4;
-
-        if (!field[y0] || !field[y1]) return [0, 0, 0];
-
-        const g00 = field[y0][x0] || [0, 0, 0];
-        const g10 = field[y0][x1] || [0, 0, 0];
-        const g01 = field[y1][x0] || [0, 0, 0];
-        const g11 = field[y1][x1] || [0, 0, 0];
-
+    bilinearInterpolate(fx, fy, g00, g10, g01, g11) {
         const rx = 1 - fx;
         const ry = 1 - fy;
+
         const a = rx * ry;
         const b = fx * ry;
         const c = rx * fy;
@@ -179,24 +210,21 @@ class WaveVelocityLayer {
 
         const u = g00[0] * a + g10[0] * b + g01[0] * c + g11[0] * d;
         const v = g00[1] * a + g10[1] * b + g01[1] * c + g11[1] * d;
-        const magnitude = g00[2] * a + g10[2] * b + g01[2] * c + g11[2] * d;
+        const m = g00[2] * a + g10[2] * b + g01[2] * c + g11[2] * d;
 
-        return [u, v, magnitude];
+        return [u, v, m];
     }
 
-    /**
-     * Get interpolated wave data at location
-     */
-    getInterpolatedWave(lat, lon, data) {
-        // Find nearest grid points
+    getWaveAtPoint(lat, lon, waveData) {
         let nearest = null;
         let minDist = Infinity;
 
-        for (const point of data) {
+        for (const point of waveData) {
             const dist = Math.sqrt(
                 Math.pow(point.lat - lat, 2) +
                 Math.pow(point.lon - lon, 2)
             );
+
             if (dist < minDist) {
                 minDist = dist;
                 nearest = point;
@@ -206,72 +234,34 @@ class WaveVelocityLayer {
         return nearest;
     }
 
-    /**
-     * Convert direction to vector (u, v)
-     */
-    directionToVector(direction, magnitude) {
-        // Direction is "coming from" in meteorological convention
-        const radians = (direction + 180) % 360 * Math.PI / 180;
+    waveToVector(direction, magnitude) {
+        // Convert meteorological direction to velocity vector
+        const rad = ((direction + 180) % 360) * Math.PI / 180;
         return {
-            u: magnitude * Math.sin(radians),
-            v: magnitude * Math.cos(radians)
+            u: magnitude * Math.sin(rad) * this.options.velocityScale * 100,
+            v: magnitude * Math.cos(rad) * this.options.velocityScale * 100
         };
     }
 
-    /**
-     * Build color scale for particles
-     */
-    buildColorScale() {
-        const colorScale = this.options.colorScale;
-        const maxVelocity = this.options.maxVelocity;
-
-        this.colorStyles = colorScale.map((color, i) => {
-            return {
-                style: color,
-                min: i * maxVelocity / colorScale.length,
-                max: (i + 1) * maxVelocity / colorScale.length
-            };
-        });
-    }
-
-    /**
-     * Get color for magnitude
-     */
-    getColor(magnitude) {
-        for (let i = this.colorStyles.length - 1; i >= 0; i--) {
-            if (magnitude >= this.colorStyles[i].min) {
-                return this.colorStyles[i].style;
-            }
-        }
-        return this.colorStyles[0].style;
-    }
-
-    /**
-     * Start animation
-     */
     start() {
-        if (!this.field) this.buildField();
         if (!this.field) return;
 
         // Initialize particles
-        const particleCount = Math.round(this.canvas.width * this.canvas.height * this.options.particleMultiplier);
+        const particleCount = Math.round(
+            this.canvas.width * this.canvas.height * this.options.particleMultiplier
+        );
+
         this.particles = [];
-
-        // Create particles distributed by color buckets
-        const bucketsPerColor = Math.ceil(particleCount / this.options.colorScale.length);
-
         for (let i = 0; i < particleCount; i++) {
-            this.particles.push(this.field.randomize({
-                age: Math.floor(Math.random() * this.options.particleAge)
-            }));
+            this.particles.push(
+                this.field.randomize({ age: Math.floor(Math.random() * this.options.particleAge) })
+            );
         }
 
+        // Start animation loop
         this.animate();
     }
 
-    /**
-     * Stop animation
-     */
     stop() {
         if (this.animationFrame) {
             cancelAnimationFrame(this.animationFrame);
@@ -279,83 +269,82 @@ class WaveVelocityLayer {
         }
     }
 
-    /**
-     * Main animation loop
-     */
     animate() {
-        const then = Date.now();
+        const self = this;
 
         const frame = () => {
-            this.animationFrame = requestAnimationFrame(frame);
+            self.animationFrame = requestAnimationFrame(frame);
 
             const now = Date.now();
-            const delta = now - then;
+            const delta = now - self.then;
 
-            if (delta < 1000 / this.options.frameRate) return;
+            if (delta < 1000 / self.options.frameRate) {
+                return;
+            }
 
-            this.evolve();
-            this.draw();
+            self.then = now;
+            self.evolve();
+            self.draw();
         };
 
         frame();
     }
 
-    /**
-     * Evolve particles
-     */
     evolve() {
         if (!this.field) return;
 
         this.particles.forEach(particle => {
+            // Age particle
             if (particle.age > this.options.particleAge) {
                 this.field.randomize(particle);
             }
 
-            const x = particle.x;
-            const y = particle.y;
+            // Get velocity at current position
+            const v = this.field.interpolate(particle.x, particle.y);
+            if (!v) {
+                this.field.randomize(particle);
+                return;
+            }
 
-            const v = this.field.interpolate(x, y);
             const u = v[0];
             const vv = v[1];
-            const magnitude = v[2];
+            const m = v[2];
 
-            particle.xt = x + u;
-            particle.yt = y + vv;
-            particle.intensity = magnitude;
+            // Calculate next position
+            particle.xt = particle.x + u;
+            particle.yt = particle.y + vv;
+            particle.m = m;
 
             // Check if next position is valid
-            if (this.field.isValid(Math.round(particle.xt), Math.round(particle.yt))) {
+            if (this.field.isDefined(Math.round(particle.xt), Math.round(particle.yt))) {
                 particle.x = particle.xt;
                 particle.y = particle.yt;
                 particle.age++;
             } else {
-                // Particle hit land or boundary, respawn
+                // Hit boundary or land, respawn
                 this.field.randomize(particle);
             }
         });
     }
 
-    /**
-     * Draw particles on canvas
-     */
     draw() {
-        if (!this.ctx) return;
+        if (!this.ctx || !this.canvas) return;
 
         const ctx = this.ctx;
         const particles = this.particles;
-        const opacity = this.options.opacity;
 
         // Fade previous frame
         ctx.globalCompositeOperation = 'destination-in';
-        ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+        ctx.fillStyle = `rgba(0, 0, 0, ${this.options.opacity})`;
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        ctx.globalCompositeOperation = 'source-over';
 
-        // Draw particles
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1.0;
         ctx.lineWidth = this.options.lineWidth;
 
+        // Draw particles
         particles.forEach(particle => {
-            const color = this.getColor(particle.intensity);
+            const color = this.colorFor(particle.m);
             ctx.strokeStyle = color;
 
             ctx.beginPath();
@@ -365,18 +354,26 @@ class WaveVelocityLayer {
         });
     }
 
-    /**
-     * Reset field on map movement
-     */
-    reset() {
-        this.stop();
-        this.buildField();
-        this.start();
+    colorFor(magnitude) {
+        const colorScale = this.options.colorScale;
+        const maxVelocity = this.options.maxVelocity;
+
+        const index = Math.min(
+            colorScale.length - 1,
+            Math.floor((magnitude / maxVelocity) * colorScale.length)
+        );
+
+        return colorScale[Math.max(0, index)];
     }
 
-    /**
-     * Resize canvas
-     */
+    reset() {
+        this.stop();
+        if (this.ctx && this.canvas) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+        this.buildField();
+    }
+
     resize() {
         const size = this.map.getSize();
         this.canvas.width = size.x;
@@ -384,33 +381,11 @@ class WaveVelocityLayer {
         this.reset();
     }
 
-    /**
-     * Handle mouse movement to display wave info
-     */
-    onMouseMove(e) {
-        if (!this.options.displayValues) return;
-        if (!this.field) return;
-
-        const point = this.map.latLngToContainerPoint(e.latlng);
-        const v = this.field.interpolate(point.x, point.y);
-
-        if (v[2] > 0) {
-            const magnitude = v[2].toFixed(2);
-            // Display could be added here
-        }
-    }
-
-    /**
-     * Update time index
-     */
     updateTime(timeIndex) {
         this.dataFetcher.setTimeIndex(timeIndex);
         this.reset();
     }
 
-    /**
-     * Remove layer
-     */
     remove() {
         this.stop();
         if (this.layer) {
