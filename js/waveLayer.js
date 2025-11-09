@@ -87,9 +87,11 @@ class WaveVelocityLayer {
      * Handle map movement end (pan/zoom end)
      */
     onMoveEnd() {
-        this.isMapMoving = false;
-        // Redraw particles at their new screen positions
-        this.redraw();
+        // Use requestAnimationFrame to ensure map projection has fully updated
+        // before we redraw particles
+        requestAnimationFrame(() => {
+            this.isMapMoving = false;
+        });
     }
 
     /**
