@@ -45,6 +45,7 @@ class ParticleSystem {
         for (let i = 0; i < this.options.particleCount; i++) {
             this.particles.push(this.createParticle());
         }
+        console.log(`Created ${this.particles.length} particles`);
     }
 
     createParticle() {
@@ -73,6 +74,8 @@ class ParticleSystem {
 
     evolve() {
         const maxAge = this.options.particleAge;
+        let movedCount = 0;
+        let respawnedCount = 0;
 
         for (let i = 0; i < this.particles.length; i++) {
             const p = this.particles[i];
@@ -83,6 +86,7 @@ class ParticleSystem {
             // Respawn if too old
             if (p.age > maxAge) {
                 Object.assign(p, this.createParticle());
+                respawnedCount++;
                 continue;
             }
 
@@ -92,6 +96,7 @@ class ParticleSystem {
             if (!v || (v.u === 0 && v.v === 0)) {
                 // No velocity, respawn
                 Object.assign(p, this.createParticle());
+                respawnedCount++;
                 continue;
             }
 
@@ -104,10 +109,19 @@ class ParticleSystem {
             if (this.field.isValid(Math.round(p.xt), Math.round(p.yt))) {
                 p.x = p.xt;
                 p.y = p.yt;
+                movedCount++;
             } else {
                 // Hit land or boundary, respawn
                 Object.assign(p, this.createParticle());
+                respawnedCount++;
             }
+        }
+
+        // Log every 60 frames (4 seconds at 15fps)
+        if (this.evolveCount === undefined) this.evolveCount = 0;
+        this.evolveCount++;
+        if (this.evolveCount % 60 === 0) {
+            console.log(`Particles - moved: ${movedCount}, respawned: ${respawnedCount}`);
         }
     }
 

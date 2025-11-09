@@ -30,6 +30,14 @@ class WaveDataGenerator {
 
         // Generate base wave field
         this.generateWaveGrid();
+
+        console.log(`Wave data initialized: ${this.waveGrid.size} ocean grid points, ${this.timeSteps.length} time steps`);
+
+        // Test sample
+        const testWave = this.getWave(30, -150, 0);
+        if (testWave) {
+            console.log(`Sample wave at 30°N, 150°W: height=${testWave.height.toFixed(2)}m, direction=${testWave.direction.toFixed(0)}°`);
+        }
     }
 
     generateWaveGrid() {
@@ -94,11 +102,11 @@ class WaveDataGenerator {
     }
 
     getWave(lat, lon, timeIndex = 0) {
-        // Snap to grid
-        const snapLat = Math.round(lat / this.resolution) * this.resolution;
-        const snapLon = Math.round(lon / this.resolution) * this.resolution;
+        // Create key directly from lat/lon
+        const latIdx = Math.round(lat / this.resolution);
+        const lonIdx = Math.round(lon / this.resolution);
+        const key = `${latIdx},${lonIdx}`;
 
-        const key = this.gridKey(snapLat, snapLon);
         const wave = this.waveGrid.get(key);
 
         if (!wave) return null;
@@ -107,9 +115,11 @@ class WaveDataGenerator {
         const timeFactor = Math.sin(timeIndex * 0.3) * 0.2;
 
         return {
-            ...wave,
+            lat: wave.lat,
+            lon: wave.lon,
             height: wave.height * (1 + timeFactor),
-            direction: (wave.direction + timeIndex * 5) % 360
+            direction: (wave.direction + timeIndex * 5) % 360,
+            period: wave.period
         };
     }
 

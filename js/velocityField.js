@@ -28,6 +28,7 @@ class VelocityField {
 
         // Build grid as column-major (x, y)
         this.grid = [];
+        let validCells = 0;
 
         for (let x = 0; x < this.gridWidth; x++) {
             const col = [];
@@ -43,6 +44,7 @@ class VelocityField {
                     // Convert wave to velocity vector
                     const uv = this.waveToVelocity(wave);
                     col[y] = [uv.u, uv.v, wave.height];
+                    validCells++;
                 } else {
                     col[y] = [0, 0, 0];
                 }
@@ -50,6 +52,8 @@ class VelocityField {
 
             this.grid[x] = col;
         }
+
+        console.log(`Field built: ${this.gridWidth}x${this.gridHeight} grid, ${validCells} valid ocean cells`);
     }
 
     waveToVelocity(wave) {
