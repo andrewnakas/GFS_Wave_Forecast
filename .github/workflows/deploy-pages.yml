@@ -3,10 +3,9 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - claude/wave-velocity-map-011CUy3JLzergnamfRYt96RH
       - main
 
-  # Allow manual trigger
+  # Allow manual trigger from any branch
   workflow_dispatch:
 
 # Sets permissions for GitHub Pages deployment
