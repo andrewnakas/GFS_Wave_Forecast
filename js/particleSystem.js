@@ -140,11 +140,12 @@ class ParticleSystem {
         ctx.globalAlpha = 1.0;
 
         let drawnCount = 0;
+        let totalDist = 0;
 
         for (let i = 0; i < particles.length; i++) {
             const p = particles[i];
 
-            // Skip if no movement (but this should be rare now)
+            // Skip if no movement
             const dx = p.xt - p.x;
             const dy = p.yt - p.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -169,13 +170,15 @@ class ParticleSystem {
             p.y = p.yt;
 
             drawnCount++;
+            totalDist += dist;
         }
 
         // Log first few frames to verify drawing
         if (!this.drawCount) this.drawCount = 0;
         this.drawCount++;
         if (this.drawCount <= 5) {
-            console.log(`Frame ${this.drawCount}: Drew ${drawnCount} particles, first particle moved ${dist.toFixed(2)}px`);
+            const avgDist = drawnCount > 0 ? (totalDist / drawnCount).toFixed(2) : 0;
+            console.log(`Frame ${this.drawCount}: Drew ${drawnCount} particles, avg movement ${avgDist}px`);
         }
     }
 

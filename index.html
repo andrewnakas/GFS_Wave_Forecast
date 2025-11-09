@@ -198,13 +198,22 @@
             color: rgba(255, 255, 255, 0.9) !important;
         }
 
-        /* Ensure canvas is visible */
+        /* Ensure canvas is visible but below controls */
         .wave-velocity-canvas {
             position: absolute !important;
             top: 0 !important;
             left: 0 !important;
-            z-index: 1000 !important;
+            z-index: 400 !important;
             pointer-events: none !important;
+        }
+
+        /* Ensure map renders fully */
+        #map {
+            background-color: #000;
+        }
+
+        .leaflet-container {
+            background-color: #000 !important;
         }
     </style>
 </head>
