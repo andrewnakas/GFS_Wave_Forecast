@@ -334,65 +334,74 @@ class WaveVelocityLayer {
                     );
                 }
 
-                // Update particle position - move in wave direction
-                particle.lat += particle.vector.v * speed;
-                particle.lon += particle.vector.u * speed;
+                // Only update particle position if map is NOT moving
+                if (!this.isMapMoving) {
+                    // Update particle position - move in wave direction
+                    particle.lat += particle.vector.v * speed;
+                    particle.lon += particle.vector.u * speed;
+                }
             }
 
-            // Age particle
-            particle.age++;
+            // Only age and respawn particles if map is NOT moving
+            if (this.isMapMoving) {
+                // Skip aging and respawning during map movement
+                // Just draw at current position
+            } else {
+                // Age particle
+                particle.age++;
 
-            // Check if particle is on land or out of bounds (use expanded bounds with buffer)
-            const isOnLand = this.dataFetcher.isLand(particle.lat, particle.lon);
-            const isOutOfBounds = !expandedBounds.contains([particle.lat, particle.lon]);
+                // Check if particle is on land or out of bounds (use expanded bounds with buffer)
+                const isOnLand = this.dataFetcher.isLand(particle.lat, particle.lon);
+                const isOutOfBounds = !expandedBounds.contains([particle.lat, particle.lon]);
 
-            // If particle is on land, respawn it at a nearby ocean location
-            if (isOnLand) {
-                // Try to find ocean near the particle's current position
-                let newLat = particle.lat;
-                let newLon = particle.lon;
-                let found = false;
+                // If particle is on land, respawn it at a nearby ocean location
+                if (isOnLand) {
+                    // Try to find ocean near the particle's current position
+                    let newLat = particle.lat;
+                    let newLon = particle.lon;
+                    let found = false;
 
-                // Search in a spiral pattern around current position
-                for (let radius = 0.5; radius < 10 && !found; radius += 0.5) {
-                    for (let angle = 0; angle < 360; angle += 30) {
-                        const testLat = particle.lat + radius * Math.cos(angle * Math.PI / 180);
-                        const testLon = particle.lon + radius * Math.sin(angle * Math.PI / 180);
+                    // Search in a spiral pattern around current position
+                    for (let radius = 0.5; radius < 10 && !found; radius += 0.5) {
+                        for (let angle = 0; angle < 360; angle += 30) {
+                            const testLat = particle.lat + radius * Math.cos(angle * Math.PI / 180);
+                            const testLon = particle.lon + radius * Math.sin(angle * Math.PI / 180);
 
-                        if (!this.dataFetcher.isLand(testLat, testLon)) {
-                            newLat = testLat;
-                            newLon = testLon;
-                            found = true;
-                            break;
+                            if (!this.dataFetcher.isLand(testLat, testLon)) {
+                                newLat = testLat;
+                                newLon = testLon;
+                                found = true;
+                                break;
+                            }
                         }
                     }
+
+                    particle.lat = newLat;
+                    particle.lon = newLon;
+                    particle.age = 0;
+                    particle.maxAge = 50 + Math.random() * 50;
+                    particle.wave = null;
+                    continue;  // Skip drawing this frame
                 }
 
-                particle.lat = newLat;
-                particle.lon = newLon;
-                particle.age = 0;
-                particle.maxAge = 50 + Math.random() * 50;
-                particle.wave = null;
-                continue;  // Skip drawing this frame
-            }
+                // Reset particle if too old or way out of bounds
+                if (particle.age > particle.maxAge || isOutOfBounds) {
+                    // Only respawn within the expanded bounds to maintain stability
+                    let attempts = 0;
+                    let newParticle;
 
-            // Reset particle if too old or way out of bounds
-            if (particle.age > particle.maxAge || isOutOfBounds) {
-                // Only respawn within the expanded bounds to maintain stability
-                let attempts = 0;
-                let newParticle;
+                    do {
+                        newParticle = this.createParticleInBounds(expandedBounds);
+                        attempts++;
+                    } while (attempts < 20);
 
-                do {
-                    newParticle = this.createParticleInBounds(expandedBounds);
-                    attempts++;
-                } while (attempts < 20);
-
-                particle.lat = newParticle.lat;
-                particle.lon = newParticle.lon;
-                particle.age = 0;
-                particle.maxAge = newParticle.maxAge;
-                particle.wave = null;
-                continue;
+                    particle.lat = newParticle.lat;
+                    particle.lon = newParticle.lon;
+                    particle.age = 0;
+                    particle.maxAge = newParticle.maxAge;
+                    particle.wave = null;
+                    continue;
+                }
             }
 
             // Only draw if particle is within visible bounds (not in buffer zone)
