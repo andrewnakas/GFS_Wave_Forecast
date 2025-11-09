@@ -30,22 +30,45 @@ class WaveVelocityApp {
             center: [25, -160],
             zoom: 3,
             minZoom: 2,
-            maxZoom: 7
+            maxZoom: 7,
+            zoomControl: true,
+            attributionControl: true
         });
 
-        // Add dark basemap
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        // Add dark basemap with proper options
+        const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
             subdomains: 'abcd',
-            maxZoom: 19
-        }).addTo(this.map);
+            maxZoom: 19,
+            minZoom: 0,
+            crossOrigin: true
+        });
+
+        tileLayer.on('tileerror', (error) => {
+            console.warn('Tile load error:', error);
+        });
+
+        tileLayer.on('tileloadstart', () => {
+            console.log('Tiles loading...');
+        });
+
+        tileLayer.on('load', () => {
+            console.log('All tiles loaded');
+        });
+
+        tileLayer.addTo(this.map);
 
         // Generate wave data
         this.updateStatus('Generating wave data...');
         this.waveData = new WaveDataGenerator();
 
-        // Wait for map to fully render
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Wait for map to fully render and tiles to load
+        await new Promise(resolve => {
+            this.map.whenReady(() => {
+                console.log('Map is ready');
+                setTimeout(resolve, 200);
+            });
+        });
 
         // Create canvas overlay
         this.updateStatus('Building velocity field...');
@@ -101,6 +124,9 @@ class WaveVelocityApp {
     }
 
     setupEventHandlers() {
+        // Force a map invalidation to ensure tiles load
+        this.map.invalidateSize();
+
         // Rebuild field on map move/zoom
         this.map.on('moveend', () => {
             console.log('Map moved, rebuilding field...');
@@ -114,6 +140,11 @@ class WaveVelocityApp {
             this.canvas.height = size.y;
             this.field.rebuild();
             this.particles.resize(size.x, size.y);
+        });
+
+        // Handle zoom end to reload tiles if needed
+        this.map.on('zoomend', () => {
+            this.map.invalidateSize();
         });
     }
 
