@@ -128,28 +128,43 @@ class WaveDataGenerator {
         while (lon > 180) lon -= 360;
         while (lon < -180) lon += 360;
 
-        // Simplified land mask - major continents
+        // Much more conservative land mask - only core continental areas
+        // This leaves most ocean areas free for wave particles
 
-        // Antarctica
-        if (lat < -60) return true;
+        // Antarctica (far south only)
+        if (lat < -70) return true;
 
-        // Arctic
-        if (lat > 80) return true;
+        // Arctic Ocean ice cap (far north only)
+        if (lat > 85) return true;
 
-        // North America
-        if (lat > 15 && lat < 75 && lon > -170 && lon < -50) return true;
+        // North America - more conservative boundaries
+        // Exclude Gulf of Alaska, coastal areas
+        if (lat > 25 && lat < 65 && lon > -125 && lon < -65) return true;
 
-        // South America
-        if (lat > -55 && lat < 15 && lon > -85 && lon < -30) return true;
+        // Central America (narrow band)
+        if (lat > 8 && lat < 25 && lon > -100 && lon < -80) return true;
 
-        // Europe/Africa
-        if (lat > -35 && lat < 75 && lon > -15 && lon < 50) return true;
+        // South America - core only
+        if (lat > -40 && lat < 10 && lon > -75 && lon < -40) return true;
 
-        // Asia
-        if (lat > 5 && lat < 75 && lon > 50 && lon < 145) return true;
+        // Europe (conservative)
+        if (lat > 40 && lat < 70 && lon > -10 && lon < 40) return true;
 
-        // Australia
-        if (lat > -45 && lat < -10 && lon > 110 && lon < 155) return true;
+        // Africa (core only)
+        if (lat > -30 && lat < 35 && lon > 0 && lon < 45) return true;
+
+        // Asia - broken into regions
+        // Middle East / Central Asia
+        if (lat > 15 && lat < 50 && lon > 40 && lon < 80) return true;
+
+        // East Asia (China, Japan region)
+        if (lat > 20 && lat < 50 && lon > 100 && lon < 135) return true;
+
+        // Southeast Asia (narrow)
+        if (lat > 0 && lat < 25 && lon > 95 && lon < 110) return true;
+
+        // Australia (core only)
+        if (lat > -35 && lat < -15 && lon > 120 && lon < 145) return true;
 
         return false;
     }
