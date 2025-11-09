@@ -3,83 +3,234 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GFS Wave Forecast Visualization</title>
+    <title>Wave Velocity - Global Wave Forecast</title>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #map {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Minimal UI overlay */
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .info-panel h1 {
+            font-size: 16px;
+            font-weight: 400;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+
+        .info-panel p {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            margin: 0;
+        }
+
+        /* Velocity indicator */
+        .velocity-display {
+            position: absolute;
+            bottom: 30px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 13px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            min-width: 200px;
+        }
+
+        .velocity-display .label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .velocity-gradient {
+            width: 100%;
+            height: 10px;
+            background: linear-gradient(to right,
+                rgb(36,104,180),
+                rgb(60,157,194),
+                rgb(128,205,193),
+                rgb(151,218,168),
+                rgb(198,231,181),
+                rgb(238,247,217),
+                rgb(255,238,159),
+                rgb(252,217,125),
+                rgb(255,182,100),
+                rgb(252,150,75),
+                rgb(250,112,52),
+                rgb(245,64,32),
+                rgb(237,45,28),
+                rgb(220,24,32),
+                rgb(180,0,35)
+            );
+            border-radius: 2px;
+            margin: 8px 0;
+        }
+
+        .velocity-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Time controls */
+        .time-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px;
+            border-radius: 4px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            min-width: 250px;
+        }
+
+        .time-controls .label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .time-display {
+            font-size: 13px;
+            color: #fff;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            text-align: center;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            -webkit-appearance: none;
+            margin: 10px 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            border: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Leaflet attribution */
+        .leaflet-control-attribution {
+            background: rgba(0, 0, 0, 0.7) !important;
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+
+        .leaflet-control-attribution a {
+            color: rgba(255, 255, 255, 0.9) !important;
+        }
+    </style>
 </head>
 <body>
-    <div id="app">
-        <!-- Header -->
-        <header>
-            <h1>GLOBAL WAVE FORECAST</h1>
-            <div id="status">Loading...</div>
-        </header>
+    <div id="map"></div>
 
-        <!-- Map Container -->
-        <div id="map"></div>
+    <!-- Info panel -->
+    <div class="info-panel">
+        <h1>Global Wave Forecast</h1>
+        <p>GFS WaveWatch III Model</p>
+    </div>
 
-        <!-- Velocity Scale Indicator -->
-        <div id="velocity-scale">
-            <h4>Wave Height (m)</h4>
-            <div class="velocity-gradient"></div>
-            <div class="velocity-labels">
-                <span>0</span>
-                <span>2</span>
-                <span>4</span>
-                <span>6</span>
-                <span>8+</span>
-            </div>
+    <!-- Velocity indicator -->
+    <div class="velocity-display">
+        <div class="label">Wave Height (m)</div>
+        <div class="velocity-gradient"></div>
+        <div class="velocity-labels">
+            <span>0</span>
+            <span>2.5</span>
+            <span>5.0</span>
+            <span>7.5</span>
+            <span>10+</span>
         </div>
+    </div>
 
-        <!-- Control Panel -->
-        <div id="control-panel">
-            <div class="control-section">
-                <h3>Forecast Time</h3>
-                <div id="time-display">--</div>
-                <input type="range" id="time-slider" min="0" max="100" value="0" step="1">
-                <div class="time-controls">
-                    <button id="play-btn">▶ Play</button>
-                    <button id="pause-btn" style="display:none;">⏸ Pause</button>
-                    <button id="reset-btn">⏮ Reset</button>
-                </div>
-            </div>
-
-            <div class="control-section">
-                <h3>Display Options</h3>
-                <label>
-                    <input type="checkbox" id="toggle-particles" checked>
-                    Wave Particle Flow
-                </label>
-                <label>
-                    <input type="checkbox" id="toggle-vectors">
-                    Direction Vectors
-                </label>
-                <div class="control-group">
-                    <label for="particle-count">Particle Density:</label>
-                    <input type="range" id="particle-count" min="500" max="3000" value="2000" step="100">
-                    <span id="particle-count-value">2000</span>
-                </div>
-            </div>
-
-            <div class="control-section">
-                <h3>Wave Info</h3>
-                <div id="wave-info">
-                    <p>Click on map for wave data</p>
-                </div>
-            </div>
-
-            <div class="control-section" id="forecast-chart-section" style="display: none;">
-                <h3>Wave Forecast Chart</h3>
-                <canvas id="wave-forecast-chart" style="height: 300px;"></canvas>
-            </div>
-
+    <!-- Time controls -->
+    <div class="time-controls">
+        <span class="label">Forecast Time</span>
+        <div class="time-display" id="time-display">Loading...</div>
+        <input type="range" id="time-slider" min="0" max="79" value="0" step="1">
+        <div class="button-group">
+            <button id="play-btn">▶ Play</button>
+            <button id="pause-btn" style="display:none;">⏸ Pause</button>
+            <button id="reset-btn">⏮ Reset</button>
         </div>
     </div>
 
@@ -88,7 +239,7 @@
 
     <!-- Application JS -->
     <script src="js/dataFetcher.js"></script>
-    <script src="js/waveLayer.js"></script>
-    <script src="js/map.js"></script>
+    <script src="js/waveVelocityLayer.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
