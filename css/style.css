@@ -5,61 +5,74 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #0a1929;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #000;
     color: #fff;
+    overflow: hidden;
 }
 
 #app {
-    display: flex;
-    flex-direction: column;
+    position: relative;
+    width: 100vw;
     height: 100vh;
 }
 
 /* Header Styles */
 header {
-    background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8c 100%);
-    padding: 15px 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    padding: 12px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    z-index: 1000;
+    z-index: 1001;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 header h1 {
-    font-size: 24px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    font-size: 18px;
+    font-weight: 400;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.9);
 }
 
 #status {
-    padding: 8px 16px;
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    font-size: 14px;
+    padding: 6px 12px;
+    background-color: rgba(100, 181, 246, 0.2);
+    border-radius: 12px;
+    font-size: 12px;
+    color: #64b5f6;
 }
 
 /* Map Container */
 #map {
-    flex: 1;
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     z-index: 1;
 }
 
 /* Control Panel */
 #control-panel {
     position: absolute;
-    top: 80px;
+    top: 70px;
     right: 20px;
-    width: 400px;
-    background: rgba(10, 25, 41, 0.95);
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    width: 280px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(20px);
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     z-index: 1000;
-    max-height: calc(100vh - 120px);
+    max-height: calc(100vh - 100px);
     overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Forecast Chart Section */
@@ -73,9 +86,9 @@ header h1 {
 }
 
 .control-section {
-    margin-bottom: 25px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 15px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .control-section:last-child {
@@ -85,21 +98,24 @@ header h1 {
 }
 
 .control-section h3 {
-    font-size: 16px;
-    margin-bottom: 15px;
-    color: #64b5f6;
-    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 /* Time Display */
 #time-display {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    padding: 10px;
+    font-size: 14px;
+    font-weight: 400;
+    margin-bottom: 8px;
+    padding: 8px;
     background: rgba(100, 181, 246, 0.1);
-    border-radius: 6px;
+    border-radius: 4px;
     text-align: center;
+    color: #64b5f6;
 }
 
 /* Slider Styles */
@@ -143,39 +159,40 @@ input[type="range"]::-moz-range-thumb {
 
 button {
     flex: 1;
-    padding: 10px;
-    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
-    color: white;
-    border: none;
-    border-radius: 6px;
+    padding: 8px 12px;
+    background: rgba(100, 181, 246, 0.2);
+    color: #64b5f6;
+    border: 1px solid rgba(100, 181, 246, 0.3);
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.3s ease;
+    font-size: 12px;
+    font-weight: 400;
+    transition: all 0.2s ease;
 }
 
 button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.4);
+    background: rgba(100, 181, 246, 0.3);
+    border-color: rgba(100, 181, 246, 0.5);
 }
 
 button:active {
-    transform: translateY(0);
+    background: rgba(100, 181, 246, 0.4);
 }
 
 /* Checkbox Styles */
 label {
     display: flex;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 input[type="checkbox"] {
-    margin-right: 10px;
-    width: 18px;
-    height: 18px;
+    margin-right: 8px;
+    width: 16px;
+    height: 16px;
     cursor: pointer;
 }
 
@@ -201,16 +218,18 @@ input[type="checkbox"] {
 
 /* Wave Info */
 #wave-info {
-    font-size: 14px;
+    font-size: 12px;
     line-height: 1.6;
+    color: rgba(255, 255, 255, 0.9);
 }
 
 #wave-info p {
-    margin: 5px 0;
+    margin: 4px 0;
 }
 
 #wave-info strong {
     color: #64b5f6;
+    font-weight: 500;
 }
 
 /* Legend */
@@ -280,6 +299,50 @@ input[type="checkbox"] {
     background: rgba(10, 25, 41, 0.95);
 }
 
+/* Velocity Scale Indicator */
+#velocity-scale {
+    position: absolute;
+    bottom: 40px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(20px);
+    border-radius: 8px;
+    padding: 15px;
+    z-index: 1000;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#velocity-scale h4 {
+    font-size: 11px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 8px;
+}
+
+.velocity-gradient {
+    width: 200px;
+    height: 10px;
+    background: linear-gradient(to right,
+        #0a1929 0%,
+        #1565c0 20%,
+        #1976d2 40%,
+        #42a5f5 60%,
+        #ffa726 75%,
+        #f57c00 85%,
+        #d32f2f 100%);
+    border-radius: 2px;
+    margin-bottom: 5px;
+}
+
+.velocity-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     #control-panel {
@@ -290,10 +353,16 @@ input[type="checkbox"] {
     }
 
     header h1 {
-        font-size: 18px;
+        font-size: 16px;
     }
 
     .time-controls {
         flex-direction: column;
+    }
+
+    #velocity-scale {
+        bottom: auto;
+        top: 70px;
+        left: 20px;
     }
 }

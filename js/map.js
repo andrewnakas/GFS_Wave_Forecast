@@ -113,14 +113,14 @@ class WaveForecastApp {
             this.waveLayer.toggleParticles(e.target.checked);
         });
 
-        // Vector scale
-        const scaleSlider = document.getElementById('vector-scale');
-        const scaleValue = document.getElementById('vector-scale-value');
+        // Particle count control
+        const particleCountSlider = document.getElementById('particle-count');
+        const particleCountValue = document.getElementById('particle-count-value');
 
-        scaleSlider.addEventListener('input', (e) => {
-            const scale = parseFloat(e.target.value);
-            scaleValue.textContent = scale.toFixed(1);
-            this.waveLayer.setVectorScale(scale);
+        particleCountSlider.addEventListener('input', (e) => {
+            const count = parseInt(e.target.value);
+            particleCountValue.textContent = count;
+            this.waveLayer.setParticleCount(count);
         });
     }
 

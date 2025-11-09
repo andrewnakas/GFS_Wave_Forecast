@@ -10,11 +10,11 @@ class WaveVelocityLayer {
         this.canvas = null;
         this.ctx = null;
         this.particles = [];
-        this.maxParticles = 1500;  // Increased for better wave visualization
+        this.maxParticles = 2000;  // More particles for beautiful visualization
         this.animationFrame = null;
         this.vectorScale = 5;
-        this.showVectors = false;  // Disabled by default for instant loading
-        this.showParticles = false;  // Disabled by default for instant loading
+        this.showVectors = false;  // Disabled by default
+        this.showParticles = true;  // ENABLED by default for instant visual impact
         this.frameSkip = 0;  // For throttling animation
         this.waveDataCache = null;  // Cache wave data
         this.cacheTimeIndex = -1;  // Track when cache is stale
@@ -302,11 +302,21 @@ class WaveVelocityLayer {
     }
 
     /**
+     * Set particle count
+     */
+    setParticleCount(count) {
+        this.maxParticles = count;
+        if (this.showParticles) {
+            this.initializeParticles();
+        }
+    }
+
+    /**
      * Update and draw particles
      */
     updateAndDrawParticles(waveData, bounds) {
         const ctx = this.ctx;
-        const speed = 0.015;  // Increased for longer wave movement
+        const speed = 0.02;  // Smoother, more visible movement
 
         // Create expanded bounds with buffer to prevent respawning during panning
         const latBuffer = (bounds.getNorth() - bounds.getSouth()) * 0.3;
@@ -419,28 +429,36 @@ class WaveVelocityLayer {
                 continue;  // Skip if off-screen
             }
 
-            const alpha = 1 - (particle.age / particle.maxAge);
+            const alpha = Math.pow(1 - (particle.age / particle.maxAge), 1.5);  // Smoother fade
 
             ctx.fillStyle = particle.wave ? this.getColorForHeight(particle.wave.height) : '#64b5f6';
-            ctx.globalAlpha = alpha * 0.7;
+            ctx.globalAlpha = alpha * 0.8;
 
-            // Draw elongated wave-like shape moving broadside (perpendicular to direction)
+            // Draw elongated particle moving in wave direction (like leaflet-velocity)
             if (particle.vector) {
                 // Calculate direction angle
                 const angle = Math.atan2(particle.vector.v, particle.vector.u);
-                // Rotate 90 degrees to move broadside like a wave crest
-                const waveAngle = angle + Math.PI / 2;
-                const waveLength = 12 + (particle.wave ? particle.wave.height * 3 : 6);
-                const waveWidth = 3;
+                const particleLength = 15 + (particle.wave ? particle.wave.height * 2 : 8);
+                const particleWidth = 2;
 
                 ctx.save();
                 ctx.translate(point.x, point.y);
-                ctx.rotate(waveAngle);
-                ctx.fillRect(-waveLength/2, -waveWidth/2, waveLength, waveWidth);
+                ctx.rotate(angle);
+
+                // Draw trail line for smooth velocity visualization
+                ctx.beginPath();
+                ctx.moveTo(-particleLength/2, 0);
+                ctx.lineTo(particleLength/2, 0);
+                ctx.lineWidth = particleWidth;
+                ctx.strokeStyle = ctx.fillStyle;
+                ctx.stroke();
+
                 ctx.restore();
             } else {
                 // Fallback to simple circle
-                ctx.fillRect(point.x - 2, point.y - 2, 4, 4);
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 2, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
 
