@@ -18,7 +18,6 @@ class WaveVelocityLayer {
         this.frameSkip = 0;  // For throttling animation
         this.waveDataCache = null;  // Cache wave data
         this.cacheTimeIndex = -1;  // Track when cache is stale
-        this.isMapMoving = false;  // Track if map is currently panning/zooming
 
         this.initializeCanvas();
     }
@@ -27,7 +26,7 @@ class WaveVelocityLayer {
      * Initialize canvas overlay
      */
     initializeCanvas() {
-        // Create canvas overlay
+        // Create canvas overlay using proper Leaflet pattern
         const CanvasLayer = L.Layer.extend({
             onAdd: (map) => {
                 this.canvas = L.DomUtil.create('canvas', 'wave-canvas');
@@ -39,31 +38,26 @@ class WaveVelocityLayer {
                 this.canvas.height = size.y;
 
                 this.canvas.style.position = 'absolute';
-                this.canvas.style.top = '0';
-                this.canvas.style.left = '0';
                 this.canvas.style.pointerEvents = 'none';
 
                 map.getPanes().overlayPane.appendChild(this.canvas);
 
-                // Listen to map movement events for proper rendering
-                map.on('movestart', () => this.onMoveStart());
-                map.on('zoomstart', () => this.onMoveStart());
-                map.on('moveend', () => this.onMoveEnd());
-                map.on('zoomend', () => this.onMoveEnd());
-                map.on('viewreset', () => this.onMoveEnd());
-                map.on('resize', () => this.resize());
+                // Set initial canvas position
+                this._reset();
+
+                // Listen to map events
+                map.on('moveend', this._reset, this);
+                map.on('resize', this._resize, this);
+                map.on('zoomanim', this._animateZoom, this);
 
                 this.initializeParticles();
             },
 
             onRemove: (map) => {
                 L.DomUtil.remove(this.canvas);
-                map.off('movestart');
-                map.off('zoomstart');
-                map.off('viewreset');
-                map.off('moveend');
-                map.off('zoomend');
-                map.off('resize');
+                map.off('moveend', this._reset, this);
+                map.off('resize', this._resize, this);
+                map.off('zoomanim', this._animateZoom, this);
                 this.stopAnimation();
             }
         });
@@ -73,45 +67,45 @@ class WaveVelocityLayer {
     }
 
     /**
-     * Handle map movement start (pan/zoom start)
+     * Reset canvas position
      */
-    onMoveStart() {
-        this.isMapMoving = true;
-        // Clear canvas during movement
-        if (this.ctx && this.canvas) {
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        }
-    }
+    _reset() {
+        if (!this.canvas) return;
 
-    /**
-     * Handle map movement end (pan/zoom end)
-     */
-    onMoveEnd() {
-        // Use requestAnimationFrame to ensure map projection has fully updated
-        // before we redraw particles
-        requestAnimationFrame(() => {
-            this.isMapMoving = false;
-        });
+        const topLeft = this.map.containerPointToLayerPoint([0, 0]);
+        L.DomUtil.setPosition(this.canvas, topLeft);
+
+        // Redraw
+        this.draw();
     }
 
     /**
      * Resize canvas
      */
-    resize() {
+    _resize() {
+        if (!this.canvas) return;
+
         const size = this.map.getSize();
         this.canvas.width = size.x;
         this.canvas.height = size.y;
-        // Don't reinitialize particles, just redraw at new positions
-        this.redraw();
+
+        this._reset();
     }
 
     /**
-     * Redraw canvas (without resetting particles)
+     * Animate zoom with CSS transform
      */
-    redraw() {
-        // Just redraw particles at their current geographic positions
-        // Don't reset them
-        this.draw();
+    _animateZoom(e) {
+        if (!this.canvas) return;
+
+        const scale = this.map.getZoomScale(e.zoom);
+        const offset = this.map._latLngToNewLayerPoint(
+            this.map.getBounds().getNorthWest(),
+            e.zoom,
+            e.center
+        );
+
+        L.DomUtil.setTransform(this.canvas, offset, scale);
     }
 
     /**
@@ -120,9 +114,6 @@ class WaveVelocityLayer {
     initializeParticles() {
         this.particles = [];
         const bounds = this.map.getBounds();
-
-        // Store initial bounds for respawning reference
-        this.initialBounds = bounds;
 
         for (let i = 0; i < this.maxParticles; i++) {
             let particle = this.createParticleInBounds(bounds);
@@ -180,9 +171,6 @@ class WaveVelocityLayer {
      */
     draw() {
         if (!this.ctx || !this.canvas) return;
-
-        // Don't draw if map is currently moving
-        if (this.isMapMoving) return;
 
         // Frame skipping for better performance - only draw every other frame
         this.frameSkip++;
@@ -336,74 +324,65 @@ class WaveVelocityLayer {
                     );
                 }
 
-                // Only update particle position if map is NOT moving
-                if (!this.isMapMoving) {
-                    // Update particle position - move in wave direction
-                    particle.lat += particle.vector.v * speed;
-                    particle.lon += particle.vector.u * speed;
-                }
+                // Update particle position - move in wave direction
+                particle.lat += particle.vector.v * speed;
+                particle.lon += particle.vector.u * speed;
             }
 
-            // Only age and respawn particles if map is NOT moving
-            if (this.isMapMoving) {
-                // Skip aging and respawning during map movement
-                // Just draw at current position
-            } else {
-                // Age particle
-                particle.age++;
+            // Age particle
+            particle.age++;
 
-                // Check if particle is on land or out of bounds (use expanded bounds with buffer)
-                const isOnLand = this.dataFetcher.isLand(particle.lat, particle.lon);
-                const isOutOfBounds = !expandedBounds.contains([particle.lat, particle.lon]);
+            // Check if particle is on land or out of bounds (use expanded bounds with buffer)
+            const isOnLand = this.dataFetcher.isLand(particle.lat, particle.lon);
+            const isOutOfBounds = !expandedBounds.contains([particle.lat, particle.lon]);
 
-                // If particle is on land, respawn it at a nearby ocean location
-                if (isOnLand) {
-                    // Try to find ocean near the particle's current position
-                    let newLat = particle.lat;
-                    let newLon = particle.lon;
-                    let found = false;
+            // If particle is on land, respawn it at a nearby ocean location
+            if (isOnLand) {
+                // Try to find ocean near the particle's current position
+                let newLat = particle.lat;
+                let newLon = particle.lon;
+                let found = false;
 
-                    // Search in a spiral pattern around current position
-                    for (let radius = 0.5; radius < 10 && !found; radius += 0.5) {
-                        for (let angle = 0; angle < 360; angle += 30) {
-                            const testLat = particle.lat + radius * Math.cos(angle * Math.PI / 180);
-                            const testLon = particle.lon + radius * Math.sin(angle * Math.PI / 180);
+                // Search in a spiral pattern around current position
+                for (let radius = 0.5; radius < 10 && !found; radius += 0.5) {
+                    for (let angle = 0; angle < 360; angle += 30) {
+                        const testLat = particle.lat + radius * Math.cos(angle * Math.PI / 180);
+                        const testLon = particle.lon + radius * Math.sin(angle * Math.PI / 180);
 
-                            if (!this.dataFetcher.isLand(testLat, testLon)) {
-                                newLat = testLat;
-                                newLon = testLon;
-                                found = true;
-                                break;
-                            }
+                        if (!this.dataFetcher.isLand(testLat, testLon)) {
+                            newLat = testLat;
+                            newLon = testLon;
+                            found = true;
+                            break;
                         }
                     }
-
-                    particle.lat = newLat;
-                    particle.lon = newLon;
-                    particle.age = 0;
-                    particle.maxAge = 50 + Math.random() * 50;
-                    particle.wave = null;
-                    continue;  // Skip drawing this frame
                 }
 
-                // Reset particle if too old or way out of bounds
-                if (particle.age > particle.maxAge || isOutOfBounds) {
-                    // Only respawn within the expanded bounds to maintain stability
-                    let attempts = 0;
-                    let newParticle;
+                particle.lat = newLat;
+                particle.lon = newLon;
+                particle.age = 0;
+                particle.maxAge = 50 + Math.random() * 50;
+                particle.wave = null;
+                continue;  // Skip drawing this frame
+            }
 
-                    do {
-                        newParticle = this.createParticleInBounds(expandedBounds);
-                        attempts++;
-                    } while (attempts < 20);
+            // Reset particle if too old or way out of bounds
+            if (particle.age > particle.maxAge || isOutOfBounds) {
+                // Only respawn within the expanded bounds to maintain stability
+                let attempts = 0;
+                let newParticle;
 
-                    particle.lat = newParticle.lat;
-                    particle.lon = newParticle.lon;
-                    particle.age = 0;
-                    particle.maxAge = newParticle.maxAge;
-                    particle.wave = null;
-                    continue;
-                }
+                do {
+                    newParticle = this.createParticleInBounds(expandedBounds);
+                    attempts++;
+                } while (attempts < 20);
+
+                particle.lat = newParticle.lat;
+                particle.lon = newParticle.lon;
+                particle.age = 0;
+                particle.maxAge = newParticle.maxAge;
+                particle.wave = null;
+                continue;
             }
 
             // Only draw if particle is within visible bounds (not in buffer zone)
@@ -411,7 +390,7 @@ class WaveVelocityLayer {
                 continue;  // Skip drawing particles outside visible area
             }
 
-            // Draw particle as wave-like shape (elongated)
+            // Convert geographic coordinates to container point
             const point = this.map.latLngToContainerPoint([particle.lat, particle.lon]);
 
             // Additional screen bounds check
