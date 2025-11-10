@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Simplified GFS wave data fetcher using JSON API endpoints.
-No GRIB2 parsing required - uses pre-processed data.
+Simplified GFS wave data fetcher using pre-generated land mask.
+No GRIB2 parsing required - uses pre-processed land-sea mask.
 """
 
 import json
@@ -17,6 +17,22 @@ except ImportError:
     import subprocess
     subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "requests"])
     import requests
+
+
+def load_land_mask():
+    """Load the pre-generated land mask."""
+    mask_file = Path('land_mask.json')
+
+    if not mask_file.exists():
+        print("Land mask not found. Generating...")
+        import subprocess
+        subprocess.check_call([sys.executable, 'generate_land_mask.py'])
+
+    with open(mask_file, 'r') as f:
+        mask = json.load(f)
+
+    print(f"Loaded land mask: {len(mask[0])} x {len(mask)} grid")
+    return mask
 
 
 def wave_to_uv(direction, height):
@@ -43,115 +59,7 @@ def wave_to_uv(direction, height):
     return u, v
 
 
-def is_land(lat, lon):
-    """
-    Check if a coordinate is on land using continental bounding boxes.
-    Returns True if land, False if ocean.
-    """
-    # Normalize longitude to -180 to 180
-    while lon > 180:
-        lon -= 360
-    while lon < -180:
-        lon += 360
-
-    # Antarctica
-    if lat < -60:
-        return True
-
-    # Greenland
-    if lat > 60 and lat < 84 and lon > -75 and lon < -10:
-        return True
-
-    # North America
-    if lat > 15 and lat < 72:
-        # Western coast (Alaska to Mexico)
-        if lon > -170 and lon < -105:
-            return True
-        # Eastern portion
-        if lat > 25 and lon > -105 and lon < -50:
-            return True
-        # Canada/US northern portion
-        if lat > 45 and lon > -105 and lon < -52:
-            return True
-
-    # Central America
-    if lat > 7 and lat < 20 and lon > -92 and lon < -77:
-        return True
-
-    # South America
-    if lat > -56 and lat < 13:
-        if lon > -82 and lon < -34:
-            return True
-
-    # Europe
-    if lat > 35 and lat < 72:
-        if lon > -10 and lon < 40:
-            return True
-
-    # Africa
-    if lat > -35 and lat < 38:
-        if lon > -18 and lon < 52:
-            return True
-
-    # Middle East
-    if lat > 12 and lat < 42:
-        if lon > 34 and lon < 63:
-            return True
-
-    # Asia - Western (Russia, Central Asia)
-    if lat > 35 and lat < 78:
-        if lon > 40 and lon < 180:
-            return True
-
-    # Asia - Southern (India, SE Asia)
-    if lat > 0 and lat < 35:
-        if lon > 60 and lon < 105:
-            return True
-
-    # Southeast Asia / Indonesia
-    if lat > -10 and lat < 25:
-        if lon > 95 and lon < 125:
-            return True
-
-    # China / East Asia
-    if lat > 20 and lat < 55:
-        if lon > 100 and lon < 145:
-            return True
-
-    # Japan
-    if lat > 30 and lat < 46:
-        if lon > 128 and lon < 146:
-            return True
-
-    # Australia
-    if lat > -44 and lat < -10:
-        if lon > 113 and lon < 154:
-            return True
-
-    # New Zealand
-    if lat > -47 and lat < -34:
-        if lon > 166 and lon < 179:
-            return True
-
-    # Madagascar
-    if lat > -26 and lat < -12:
-        if lon > 43 and lon < 51:
-            return True
-
-    # Iceland
-    if lat > 63 and lat < 67:
-        if lon > -25 and lon < -13:
-            return True
-
-    # British Isles
-    if lat > 50 and lat < 61:
-        if lon > -11 and lon < 2:
-            return True
-
-    return False
-
-
-def generate_realistic_synthetic_data():
+def generate_realistic_synthetic_data(land_mask):
     """
     Generate more realistic synthetic wave data based on climatology.
     Uses real-world wave patterns.
@@ -185,8 +93,8 @@ def generate_realistic_synthetic_data():
             # Normalize longitude to -180 to 180
             lon_norm = lon if lon <= 180 else lon - 360
 
-            # Check if this point is on land
-            if is_land(lat, lon_norm):
+            # Check if this point is on land using pre-computed mask
+            if land_mask[y][x]:  # True = land
                 # Land: set velocity to exactly 0
                 u_data.append(0.0)
                 v_data.append(0.0)
@@ -321,11 +229,14 @@ def save_to_json(data, filename='gfs-wave-data.json'):
 def main():
     """Main function."""
     print("=" * 60)
-    print("Simplified GFS Wave Data Generator")
+    print("GFS Wave Data Generator with Precise Land Masking")
     print("=" * 60)
 
-    # Generate enhanced synthetic data
-    wave_data = generate_realistic_synthetic_data()
+    # Load the pre-generated land mask
+    land_mask = load_land_mask()
+
+    # Generate enhanced synthetic data with precise land masking
+    wave_data = generate_realistic_synthetic_data(land_mask)
 
     # Save to JSON
     save_to_json(wave_data)

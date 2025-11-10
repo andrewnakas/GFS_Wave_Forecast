@@ -9,8 +9,9 @@ cron.log
 
 # Exported data files
 *.csv
-# Allow GFS wave data JSON file
+# Allow GFS wave data JSON file and land mask
 !gfs-wave-data.json
+!land_mask.json
 
 # Python
 __pycache__/
