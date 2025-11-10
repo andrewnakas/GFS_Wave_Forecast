@@ -124,6 +124,22 @@
             padding: 20px;
         }
 
+        .forecast-chart {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chart-title {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+
         .forecast-day {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 8px;
@@ -233,7 +249,13 @@
             <div class="forecast-location" id="forecastLocation">Select a location</div>
         </div>
         <div class="forecast-content" id="forecastContent">
-            <div class="forecast-loading">Click anywhere on the map to view wave forecast</div>
+            <div class="forecast-chart" id="forecastChart" style="display: none;">
+                <div class="chart-title">10-Day Wave Height Forecast</div>
+                <canvas id="waveChart"></canvas>
+            </div>
+            <div id="forecastDays">
+                <div class="forecast-loading">Click anywhere on the map to view wave forecast</div>
+            </div>
         </div>
     </div>
 
@@ -244,6 +266,7 @@
     <script src="https://cdn.jsdelivr.net/npm/leaflet-velocity@1.9.0/dist/leaflet-velocity.min.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <script src="https://unpkg.com/topojson@3/dist/topojson.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="wave-data.js"></script>
     <script>
         // Initialize map
@@ -264,6 +287,7 @@
         let dataReady = false;
         let currentMarker = null;
         let landPolygons = null;
+        let waveChart = null;
 
         function tryInitVelocity() {
             if (mapReady && dataReady && window.waveData) {
@@ -393,11 +417,119 @@
             return 'wave-height-small';
         }
 
+        // Render wave height chart
+        function renderWaveChart(forecast) {
+            const ctx = document.getElementById('waveChart').getContext('2d');
+
+            // Destroy existing chart if it exists
+            if (waveChart) {
+                waveChart.destroy();
+            }
+
+            // Prepare data
+            const labels = forecast.map((day, index) => {
+                if (index === 0) return 'Today';
+                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                return days[day.date.getDay()];
+            });
+
+            const waveHeights = forecast.map(day => day.waveHeight);
+
+            // Create gradient for wave height
+            const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+            gradient.addColorStop(0, 'rgba(244, 109, 67, 0.8)');
+            gradient.addColorStop(0.5, 'rgba(254, 224, 139, 0.6)');
+            gradient.addColorStop(1, 'rgba(102, 194, 165, 0.4)');
+
+            // Create chart
+            waveChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Wave Height (m)',
+                        data: waveHeights,
+                        borderColor: 'rgba(102, 194, 165, 1)',
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: waveHeights.map(h => {
+                            if (h >= 3) return '#f46d43';
+                            if (h >= 1.5) return '#fee08b';
+                            return '#66c2a5';
+                        }),
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 2.5,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                            borderWidth: 1,
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Wave Height: ${context.parsed.y.toFixed(1)}m`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.6)',
+                                font: {
+                                    size: 11
+                                },
+                                callback: function(value) {
+                                    return value + 'm';
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.6)',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Show chart container
+            document.getElementById('forecastChart').style.display = 'block';
+        }
+
         // Display forecast in panel
         function showForecast(lat, lon) {
             const panel = document.getElementById('forecastPanel');
             const location = document.getElementById('forecastLocation');
-            const content = document.getElementById('forecastContent');
+            const forecastDays = document.getElementById('forecastDays');
 
             // Remove previous marker if exists
             if (currentMarker) {
@@ -419,6 +551,9 @@
 
             // Generate forecast
             const forecast = generateForecast(lat, lon);
+
+            // Render chart with forecast data
+            renderWaveChart(forecast);
 
             // Build HTML
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -468,7 +603,7 @@
                 `;
             });
 
-            content.innerHTML = html;
+            forecastDays.innerHTML = html;
             panel.classList.add('open');
         }
 
