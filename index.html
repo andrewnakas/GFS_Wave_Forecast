@@ -48,37 +48,53 @@
             maxZoom: 19
         }).addTo(map);
 
-        // Wait for map to be ready, then add velocity layer
+        // Wait for both map and wave data to be ready
+        let mapReady = false;
+        let dataReady = false;
+
+        function tryInitVelocity() {
+            if (mapReady && dataReady && window.waveData) {
+                console.log('Initializing velocity layer...');
+
+                const velocityLayer = L.velocityLayer({
+                    displayValues: true,
+                    displayOptions: {
+                        velocityType: 'Wave',
+                        position: 'bottomleft',
+                        emptyString: 'No wave data',
+                        showCardinal: true,
+                        speedUnit: 'm/s'
+                    },
+                    data: window.waveData,
+                    maxVelocity: 10,
+                    velocityScale: 0.01,
+                    colorScale: [
+                        '#3288bd',
+                        '#66c2a5',
+                        '#abdda4',
+                        '#e6f598',
+                        '#fee08b',
+                        '#fdae61',
+                        '#f46d43',
+                        '#d53e4f'
+                    ]
+                });
+
+                velocityLayer.addTo(map);
+                console.log('Wave velocity layer added successfully');
+            }
+        }
+
         map.whenReady(function() {
-            console.log('Map ready, loading wave velocity data...');
+            console.log('Map ready');
+            mapReady = true;
+            tryInitVelocity();
+        });
 
-            // Add velocity layer with wave data
-            const velocityLayer = L.velocityLayer({
-                displayValues: true,
-                displayOptions: {
-                    velocityType: 'Wave',
-                    position: 'bottomleft',
-                    emptyString: 'No wave data',
-                    showCardinal: true,
-                    speedUnit: 'm/s'
-                },
-                data: waveData,
-                maxVelocity: 10,
-                velocityScale: 0.01,
-                colorScale: [
-                    '#3288bd',
-                    '#66c2a5',
-                    '#abdda4',
-                    '#e6f598',
-                    '#fee08b',
-                    '#fdae61',
-                    '#f46d43',
-                    '#d53e4f'
-                ]
-            });
-
-            velocityLayer.addTo(map);
-            console.log('Wave velocity layer added');
+        window.addEventListener('waveDataReady', function() {
+            console.log('Wave data ready');
+            dataReady = true;
+            tryInitVelocity();
         });
     </script>
 </body>

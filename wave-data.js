@@ -1,145 +1,140 @@
-// Generate wave velocity data in leaflet-velocity format
+// Load GFS wave data for leaflet-velocity
 (function() {
     'use strict';
 
-    // Grid parameters - matching leaflet-velocity demo format
-    const dx = 2.5;  // longitude spacing
-    const dy = 2.5;  // latitude spacing
-    const nx = 144;  // 360 / 2.5
-    const ny = 73;   // 180 / 2.5 + 1
-    const la1 = 90;  // north
-    const la2 = -90; // south
-    const lo1 = 0;   // west
-    const lo2 = 357.5; // east
+    // Try to load real GFS data, fallback to synthetic if unavailable
+    async function loadWaveData() {
+        console.log('Loading wave data...');
 
-    // Check if point is land (simplified)
-    function isLand(lat, lon) {
-        // Normalize longitude
-        while (lon > 180) lon -= 360;
-        while (lon < -180) lon += 360;
+        try {
+            // Try to load pre-fetched GFS data
+            const response = await fetch('gfs-wave-data.json');
 
-        // Very simple land mask for major continents
-        // Antarctica
-        if (lat < -60) return true;
-
-        // North America
-        if (lat > 25 && lat < 70 && lon > -130 && lon < -60) return true;
-
-        // South America
-        if (lat > -55 && lat < 12 && lon > -82 && lon < -34) return true;
-
-        // Europe/Africa
-        if (lat > -35 && lat < 70 && lon > -15 && lon < 50) return true;
-
-        // Asia
-        if (lat > 10 && lat < 70 && lon > 50 && lon < 150) return true;
-
-        // Australia
-        if (lat > -45 && lat < -10 && lon > 110 && lon < 155) return true;
-
-        return false;
-    }
-
-    // Generate realistic wave patterns
-    function generateWaveVelocity(lat, lon) {
-        // Skip land
-        if (isLand(lat, lon)) {
-            return { u: 0, v: 0 };
-        }
-
-        let u = 0; // east-west component
-        let v = 0; // north-south component
-
-        // Trade winds (15°N to 30°N and 15°S to 30°S) - east to west
-        if ((lat > 15 && lat < 30) || (lat > -30 && lat < -15)) {
-            u = -3 + Math.sin(lon * Math.PI / 180) * 1.5;
-            v = -0.5 + Math.cos(lon * Math.PI / 180) * 0.5;
-        }
-
-        // Westerlies (30°N to 60°N and 30°S to 60°S) - west to east
-        else if ((lat > 30 && lat < 60) || (lat > -60 && lat < -30)) {
-            u = 4 + Math.cos(lon * Math.PI / 180) * 2;
-            v = 1 + Math.sin(lon * Math.PI / 180) * 1;
-        }
-
-        // Polar regions - weaker, variable
-        else if (lat > 60 || lat < -60) {
-            u = Math.sin(lon * Math.PI / 90) * 1.5;
-            v = -Math.cos(lon * Math.PI / 90) * 1.5;
-        }
-
-        // Doldrums (equatorial) - light and variable
-        else {
-            u = Math.sin(lon * Math.PI / 180) * 1.5;
-            v = Math.cos(lon * Math.PI / 180) * 0.8;
-        }
-
-        // Add some noise for realism
-        u += (Math.random() - 0.5) * 0.5;
-        v += (Math.random() - 0.5) * 0.5;
-
-        // Add wave effects based on position
-        const waveEffect = Math.sin(lat * Math.PI / 180) * Math.cos(lon * Math.PI / 180);
-        u += waveEffect * 0.8;
-        v += waveEffect * 0.5;
-
-        return { u, v };
-    }
-
-    // Generate data arrays
-    const uData = [];
-    const vData = [];
-
-    console.log('Generating wave data grid...');
-
-    // Generate grid from north to south, west to east
-    for (let y = 0; y < ny; y++) {
-        const lat = la1 - (y * dy);
-
-        for (let x = 0; x < nx; x++) {
-            const lon = lo1 + (x * dx);
-
-            const velocity = generateWaveVelocity(lat, lon);
-            uData.push(velocity.u);
-            vData.push(velocity.v);
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Loaded real GFS wave data');
+                console.log(`Grid: ${data[0].header.nx} x ${data[0].header.ny}`);
+                console.log(`Data points: ${data[0].data.length}`);
+                return data;
+            } else {
+                throw new Error('GFS data file not found');
+            }
+        } catch (error) {
+            console.warn('Could not load GFS data:', error.message);
+            console.log('Using synthetic wave data');
+            return generateSyntheticData();
         }
     }
 
-    console.log(`Generated ${uData.length} grid points (${nx} x ${ny})`);
+    // Generate synthetic data as fallback
+    function generateSyntheticData() {
+        const dx = 2.5;
+        const dy = 2.5;
+        const nx = 144;  // 360 / 2.5
+        const ny = 73;   // 180 / 2.5 + 1
+        const la1 = 90;
+        const la2 = -90;
+        const lo1 = 0;
+        const lo2 = 357.5;
 
-    // Create the data structure expected by leaflet-velocity
-    window.waveData = [
-        {
-            "header": {
-                "parameterCategory": 2,
-                "parameterNumber": 2,
-                "dx": dx,
-                "dy": dy,
-                "nx": nx,
-                "ny": ny,
-                "la1": la1,
-                "la2": la2,
-                "lo1": lo1,
-                "lo2": lo2
+        const uData = [];
+        const vData = [];
+
+        console.log('Generating synthetic wave data...');
+
+        // Generate grid from north to south, west to east
+        for (let y = 0; y < ny; y++) {
+            const lat = la1 - (y * dy);
+
+            for (let x = 0; x < nx; x++) {
+                const lon = lo1 + (x * dx);
+
+                // Simulate realistic wave patterns
+                let u = 0;
+                let v = 0;
+
+                // Southern Ocean (strong westerlies)
+                if (lat < -40) {
+                    u = 5 + Math.cos(lon * Math.PI / 180) * 2;
+                    v = Math.sin(lon * Math.PI / 180) * 1.5;
+                }
+                // Mid-latitude westerlies (30-60°)
+                else if ((lat > 30 && lat < 60) || (lat > -40 && lat < -30)) {
+                    u = 3 + Math.cos(lon * Math.PI / 180) * 1.5;
+                    v = Math.sin(lon * Math.PI / 180);
+                }
+                // Trade winds (15-30°)
+                else if ((lat > 15 && lat < 30) || (lat > -30 && lat < -15)) {
+                    u = -2.5 + Math.sin(lon * Math.PI / 180) * 0.8;
+                    v = -0.5 + Math.cos(lon * Math.PI / 180) * 0.3;
+                }
+                // Equatorial (light and variable)
+                else if (lat > -15 && lat < 15) {
+                    u = Math.sin(lon * Math.PI / 90) * 1.2;
+                    v = Math.cos(lon * Math.PI / 90) * 0.6;
+                }
+                // Polar
+                else {
+                    u = Math.sin(lon * Math.PI / 60);
+                    v = -Math.cos(lon * Math.PI / 60) * 0.8;
+                }
+
+                // Add realistic variation
+                u += (Math.random() - 0.5) * 0.4;
+                v += (Math.random() - 0.5) * 0.4;
+
+                // Add wave-like patterns
+                const wavePhase = (lat * 3 + lon * 2) * Math.PI / 180;
+                u += Math.sin(wavePhase) * 0.3;
+                v += Math.cos(wavePhase) * 0.2;
+
+                uData.push(u);
+                vData.push(v);
+            }
+        }
+
+        console.log(`Generated ${uData.length} synthetic data points`);
+
+        return [
+            {
+                "header": {
+                    "parameterCategory": 2,
+                    "parameterNumber": 2,
+                    "dx": dx,
+                    "dy": dy,
+                    "nx": nx,
+                    "ny": ny,
+                    "la1": la1,
+                    "la2": la2,
+                    "lo1": lo1,
+                    "lo2": lo2
+                },
+                "data": uData
             },
-            "data": uData
-        },
-        {
-            "header": {
-                "parameterCategory": 2,
-                "parameterNumber": 3,
-                "dx": dx,
-                "dy": dy,
-                "nx": nx,
-                "ny": ny,
-                "la1": la1,
-                "la2": la2,
-                "lo1": lo1,
-                "lo2": lo2
-            },
-            "data": vData
-        }
-    ];
+            {
+                "header": {
+                    "parameterCategory": 2,
+                    "parameterNumber": 3,
+                    "dx": dx,
+                    "dy": dy,
+                    "nx": nx,
+                    "ny": ny,
+                    "la1": la1,
+                    "la2": la2,
+                    "lo1": lo1,
+                    "lo2": lo2
+                },
+                "data": vData
+            }
+        ];
+    }
 
-    console.log('Wave data ready for leaflet-velocity');
+    // Initialize and expose data
+    async function init() {
+        window.waveData = await loadWaveData();
+        console.log('Wave data ready');
+        window.dispatchEvent(new Event('waveDataReady'));
+    }
+
+    init();
 })();
