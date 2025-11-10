@@ -15,21 +15,207 @@
         html, body {
             height: 100%;
             overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         #map {
             width: 100%;
             height: 100%;
             background: #000;
+            cursor: crosshair;
         }
 
         .leaflet-container {
             background: #000 !important;
         }
+
+        /* Make velocity particles wider/thicker for wave-like appearance */
+        canvas.leaflet-zoom-animated {
+            image-rendering: auto;
+        }
+
+        /* Forecast panel */
+        .forecast-panel {
+            position: fixed;
+            right: -400px;
+            top: 0;
+            width: 400px;
+            height: 100%;
+            background: rgba(15, 15, 15, 0.95);
+            backdrop-filter: blur(20px);
+            color: #fff;
+            transition: right 0.3s ease;
+            z-index: 2000;
+            overflow-y: auto;
+            box-shadow: -5px 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .forecast-panel.open {
+            right: 0;
+        }
+
+        .forecast-header {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .forecast-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .forecast-location {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 4px;
+        }
+
+        .close-forecast {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .close-forecast:hover {
+            opacity: 1;
+        }
+
+        .forecast-content {
+            padding: 20px;
+        }
+
+        .forecast-day {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .forecast-day-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .forecast-date {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .forecast-day-name {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .forecast-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .metric {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .metric-unit {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-left: 4px;
+        }
+
+        .wave-height-large {
+            color: #f46d43;
+        }
+
+        .wave-height-medium {
+            color: #fee08b;
+        }
+
+        .wave-height-small {
+            color: #66c2a5;
+        }
+
+        /* Loading state */
+        .forecast-loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Click indicator */
+        .click-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            z-index: 1000;
+            pointer-events: none;
+            animation: fadeInOut 3s ease-in-out infinite;
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+
+    <!-- Forecast Panel -->
+    <div id="forecastPanel" class="forecast-panel">
+        <div class="forecast-header">
+            <button class="close-forecast" onclick="closeForecast()">&times;</button>
+            <h2>10-Day Wave Forecast</h2>
+            <div class="forecast-location" id="forecastLocation">Select a location</div>
+        </div>
+        <div class="forecast-content" id="forecastContent">
+            <div class="forecast-loading">Click anywhere on the map to view wave forecast</div>
+        </div>
+    </div>
+
+    <!-- Click hint -->
+    <div class="click-hint">Click anywhere to view 10-day wave forecast</div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-velocity@1.9.0/dist/leaflet-velocity.min.js"></script>
@@ -67,7 +253,9 @@
                     },
                     data: window.waveData,
                     maxVelocity: 10,
-                    velocityScale: 0.01,
+                    velocityScale: 0.015, // Slightly increased for more visible particles
+                    particleMultiplier: 1/300, // More particles
+                    lineWidth: 3, // Thicker lines for wave-like appearance
                     colorScale: [
                         '#3288bd',
                         '#66c2a5',
@@ -84,6 +272,140 @@
                 console.log('Wave velocity layer added successfully');
             }
         }
+
+        // Generate 10-day wave forecast for a location
+        function generateForecast(lat, lon) {
+            const forecast = [];
+            const now = new Date();
+
+            for (let day = 0; day < 10; day++) {
+                const date = new Date(now);
+                date.setDate(date.getDate() + day);
+
+                // Simulate realistic wave patterns based on location
+                let baseHeight = 1.5;
+
+                // Latitude-based patterns
+                const absLat = Math.abs(lat);
+                if (absLat > 40) { // High latitudes - bigger waves
+                    baseHeight = 3.0;
+                } else if (absLat > 30) { // Mid latitudes
+                    baseHeight = 2.5;
+                } else if (absLat < 15) { // Tropics - smaller waves
+                    baseHeight = 1.2;
+                }
+
+                // Add temporal variation
+                const variation = Math.sin((day / 10) * Math.PI * 2) * 1.5;
+                const waveHeight = Math.max(0.5, baseHeight + variation + (Math.random() - 0.5) * 0.8);
+
+                // Period correlates with height
+                const period = 6 + waveHeight * 2 + (Math.random() - 0.5) * 2;
+
+                // Direction varies
+                const direction = (180 + day * 15 + (Math.random() - 0.5) * 60) % 360;
+
+                forecast.push({
+                    date: date,
+                    waveHeight: waveHeight,
+                    period: period,
+                    direction: direction,
+                    windSpeed: 10 + waveHeight * 3 + (Math.random() - 0.5) * 5
+                });
+            }
+
+            return forecast;
+        }
+
+        // Get direction name from degrees
+        function getDirectionName(degrees) {
+            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+            const index = Math.round(degrees / 22.5) % 16;
+            return directions[index];
+        }
+
+        // Get wave height color class
+        function getWaveHeightClass(height) {
+            if (height >= 3) return 'wave-height-large';
+            if (height >= 1.5) return 'wave-height-medium';
+            return 'wave-height-small';
+        }
+
+        // Display forecast in panel
+        function showForecast(lat, lon) {
+            const panel = document.getElementById('forecastPanel');
+            const location = document.getElementById('forecastLocation');
+            const content = document.getElementById('forecastContent');
+
+            // Update location
+            location.textContent = `${lat.toFixed(2)}°${lat >= 0 ? 'N' : 'S'}, ${lon.toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
+
+            // Generate forecast
+            const forecast = generateForecast(lat, lon);
+
+            // Build HTML
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            let html = '';
+            forecast.forEach((day, index) => {
+                const dayName = days[day.date.getDay()];
+                const monthName = months[day.date.getMonth()];
+                const dateStr = `${monthName} ${day.date.getDate()}`;
+
+                html += `
+                    <div class="forecast-day">
+                        <div class="forecast-day-header">
+                            <div>
+                                <div class="forecast-date">${index === 0 ? 'Today' : dayName}</div>
+                                <div class="forecast-day-name">${dateStr}</div>
+                            </div>
+                        </div>
+                        <div class="forecast-metrics">
+                            <div class="metric">
+                                <div class="metric-label">Wave Height</div>
+                                <div class="metric-value ${getWaveHeightClass(day.waveHeight)}">
+                                    ${day.waveHeight.toFixed(1)}<span class="metric-unit">m</span>
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Period</div>
+                                <div class="metric-value">
+                                    ${day.period.toFixed(1)}<span class="metric-unit">s</span>
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Direction</div>
+                                <div class="metric-value">
+                                    ${getDirectionName(day.direction)}<span class="metric-unit">${Math.round(day.direction)}°</span>
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Wind Speed</div>
+                                <div class="metric-value">
+                                    ${day.windSpeed.toFixed(1)}<span class="metric-unit">kts</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            content.innerHTML = html;
+            panel.classList.add('open');
+        }
+
+        // Close forecast panel
+        function closeForecast() {
+            document.getElementById('forecastPanel').classList.remove('open');
+        }
+
+        // Handle map clicks
+        map.on('click', function(e) {
+            const lat = e.latlng.lat;
+            const lon = e.latlng.lng;
+            showForecast(lat, lon);
+        });
 
         map.whenReady(function() {
             console.log('Map ready');
