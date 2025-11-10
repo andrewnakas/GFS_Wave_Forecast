@@ -3,11 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Wave Velocity</title>
-
-    <!-- Leaflet CSS -->
+    <title>GFS Wave Velocity</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
     <style>
         * {
             margin: 0;
@@ -15,249 +12,74 @@
             box-sizing: border-box;
         }
 
-        body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            background-color: #000;
-            color: #fff;
+        html, body {
+            height: 100%;
             overflow: hidden;
         }
 
         #map {
-            position: absolute;
             width: 100%;
             height: 100%;
-        }
-
-        /* Info panel */
-        .info-panel {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.75);
-            padding: 10px 15px;
-            border-radius: 4px;
-            font-size: 14px;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-        }
-
-        .info-panel h1 {
-            font-size: 16px;
-            font-weight: 400;
-            margin-bottom: 5px;
-        }
-
-        .info-panel p {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.7);
-            margin: 0;
-        }
-
-        /* Wave height scale */
-        .velocity-scale {
-            position: absolute;
-            bottom: 30px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.75);
-            padding: 10px 15px;
-            border-radius: 4px;
-            font-size: 13px;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-            min-width: 200px;
-        }
-
-        .velocity-scale .label {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-        }
-
-        .velocity-gradient {
-            width: 100%;
-            height: 10px;
-            background: linear-gradient(to right,
-                rgb(36,104,180),
-                rgb(60,157,194),
-                rgb(128,205,193),
-                rgb(151,218,168),
-                rgb(198,231,181),
-                rgb(238,247,217),
-                rgb(255,238,159),
-                rgb(252,217,125),
-                rgb(255,182,100),
-                rgb(252,150,75),
-                rgb(250,112,52),
-                rgb(245,64,32),
-                rgb(237,45,28),
-                rgb(220,24,32),
-                rgb(180,0,35)
-            );
-            border-radius: 2px;
-            margin: 8px 0;
-        }
-
-        .velocity-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 10px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        /* Time controls */
-        .time-controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.75);
-            padding: 12px;
-            border-radius: 4px;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-            min-width: 250px;
-        }
-
-        .time-controls .label {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.6);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        .time-display {
-            font-size: 13px;
-            color: #fff;
-            margin-bottom: 10px;
-            padding: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
-            text-align: center;
-        }
-
-        input[type="range"] {
-            width: 100%;
-            height: 4px;
-            border-radius: 2px;
-            background: rgba(255, 255, 255, 0.2);
-            outline: none;
-            -webkit-appearance: none;
-            margin: 10px 0;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #fff;
-            cursor: pointer;
-        }
-
-        input[type="range"]::-moz-range-thumb {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #fff;
-            cursor: pointer;
-            border: none;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 8px;
-            margin-top: 10px;
-        }
-
-        button {
-            flex: 1;
-            padding: 6px 10px;
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-            transition: all 0.2s;
-        }
-
-        button:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        /* Leaflet attribution */
-        .leaflet-control-attribution {
-            background: rgba(0, 0, 0, 0.7) !important;
-            color: rgba(255, 255, 255, 0.7) !important;
-        }
-
-        .leaflet-control-attribution a {
-            color: rgba(255, 255, 255, 0.9) !important;
-        }
-
-        /* Ensure canvas is visible but below controls */
-        .wave-velocity-canvas {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            z-index: 400 !important;
-            pointer-events: none !important;
-        }
-
-        /* Ensure map renders fully */
-        #map {
-            background-color: #000;
+            background: #000;
         }
 
         .leaflet-container {
-            background-color: #000 !important;
+            background: #000 !important;
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
 
-    <!-- Info panel -->
-    <div class="info-panel">
-        <h1>Global Wave Forecast</h1>
-        <p>Wave Velocity Visualization</p>
-    </div>
-
-    <!-- Wave height scale -->
-    <div class="velocity-scale">
-        <div class="label">Wave Height (m)</div>
-        <div class="velocity-gradient"></div>
-        <div class="velocity-labels">
-            <span>0</span>
-            <span>2.5</span>
-            <span>5.0</span>
-            <span>7.5</span>
-            <span>10+</span>
-        </div>
-    </div>
-
-    <!-- Time controls -->
-    <div class="time-controls">
-        <span class="label">Forecast Time</span>
-        <div class="time-display" id="time-display">Initializing...</div>
-        <input type="range" id="time-slider" min="0" max="79" value="0" step="1">
-        <div class="button-group">
-            <button id="play-btn">▶ Play</button>
-            <button id="pause-btn" style="display:none;">⏸ Pause</button>
-            <button id="reset-btn">⏮ Reset</button>
-        </div>
-    </div>
-
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-velocity@1.9.0/dist/leaflet-velocity.min.js"></script>
+    <script src="wave-data.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map', {
+            center: [20, 0],
+            zoom: 2,
+            zoomControl: true,
+            attributionControl: false
+        });
 
-    <!-- Application JS (order matters!) -->
-    <script src="js/waveData.js"></script>
-    <script src="js/velocityField.js"></script>
-    <script src="js/particleSystem.js"></script>
-    <script src="js/waveVelocityApp.js"></script>
+        // Add dark tiles
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        // Wait for map to be ready, then add velocity layer
+        map.whenReady(function() {
+            console.log('Map ready, loading wave velocity data...');
+
+            // Add velocity layer with wave data
+            const velocityLayer = L.velocityLayer({
+                displayValues: true,
+                displayOptions: {
+                    velocityType: 'Wave',
+                    position: 'bottomleft',
+                    emptyString: 'No wave data',
+                    showCardinal: true,
+                    speedUnit: 'm/s'
+                },
+                data: waveData,
+                maxVelocity: 10,
+                velocityScale: 0.01,
+                colorScale: [
+                    '#3288bd',
+                    '#66c2a5',
+                    '#abdda4',
+                    '#e6f598',
+                    '#fee08b',
+                    '#fdae61',
+                    '#f46d43',
+                    '#d53e4f'
+                ]
+            });
+
+            velocityLayer.addTo(map);
+            console.log('Wave velocity layer added');
+        });
+    </script>
 </body>
 </html>
