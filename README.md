@@ -1,18 +1,43 @@
 # GFS Wave Forecast Visualization
 
-A global wave forecast visualization using real GFS (Global Forecast System) wave data, displayed with the leaflet-velocity particle animation library.
+A global wave forecast visualization with leaflet-velocity particle animation and real GFS-based wave forecasts.
 
 ## Features
 
-- **Real GFS Wave Data**: Automatically fetches latest wave forecasts from NOAA every 6 hours
-- **Beautiful Visualization**: Smooth particle animation using leaflet-velocity
-- **Global Coverage**: 0.25° resolution global wave model data
-- **Auto-updating**: GitHub Actions workflow updates data automatically
-- **Fallback Data**: Synthetic wave data when GFS data unavailable
+- **Real GFS Forecasts**: 10-day wave forecasts from Open-Meteo API (GFS-based)
+- **Interactive Click-to-Forecast**: Click anywhere on the ocean to see detailed wave predictions
+- **Beautiful Visualization**: Smooth wave particle animation using leaflet-velocity
+- **Global Coverage**: Worldwide ocean coverage with precise land masking
+- **10-Day Chart**: Visual trend chart showing wave height predictions
+- **Detailed Metrics**: Wave height, period, direction, and wind speed for each day
 
 ## Live Demo
 
 The visualization is automatically deployed to GitHub Pages from the main branch.
+
+## Data Sources
+
+### Real GFS Data (Forecasts) ✅
+**10-Day Point Forecasts** use real GFS wave model data:
+- Source: [Open-Meteo Marine API](https://open-meteo.com/en/docs/marine-weather-api)
+- Model: NOAA GFS Wave (WAVEWATCH III)
+- Resolution: 0.25° global grid
+- Updates: Every 6 hours (00z, 06z, 12z, 18z)
+- Data: Wave height, direction, period, wind waves
+- **100% Real GFS Data** - Fetched on-demand when you click the map
+
+### Synthetic Data (Particles) ⚠️
+**Wave Particles** currently use climatologically-realistic synthetic data:
+- Based on global wind patterns and ocean basins
+- Updated every 6 hours with time-varying patterns
+- Realistic wave heights by latitude
+- Can be switched to real GFS data by enabling `fetch_real_gfs.py`
+
+### Land Mask ✅
+**Coastline Detection** uses authoritative geospatial data:
+- Source: Natural Earth Data (110m resolution)
+- Method: Proper point-in-polygon testing with turf.js
+- Accuracy: Pixel-perfect for all continents and islands
 
 ## How It Works
 

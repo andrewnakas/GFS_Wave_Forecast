@@ -25,6 +25,9 @@ jobs:
 
       - name: Fetch GFS wave data
         run: |
+          # Use synthetic data by default (fast)
+          # For real GFS data, use: python fetch_real_gfs.py
+          # Note: Real data fetch takes 10-15 minutes due to API rate limits
           python fetch_simple.py
 
       - name: Commit and push if changed

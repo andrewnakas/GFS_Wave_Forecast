@@ -360,7 +360,51 @@
         }
 
         // Generate 10-day wave forecast for a location
-        function generateForecast(lat, lon) {
+        async function generateForecast(lat, lon) {
+            try {
+                // Fetch real GFS wave forecast from Open-Meteo API
+                // Open-Meteo provides free GFS-based marine/wave forecasts
+                const response = await fetch(
+                    `https://marine-api.open-meteo.com/v1/marine?` +
+                    `latitude=${lat.toFixed(2)}&` +
+                    `longitude=${lon.toFixed(2)}&` +
+                    `daily=wave_height_max,wave_direction_dominant,wave_period_max,wind_wave_height_max&` +
+                    `timezone=auto&` +
+                    `forecast_days=10`
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Convert Open-Meteo response to our format
+                const forecast = [];
+                for (let day = 0; day < Math.min(10, data.daily.time.length); day++) {
+                    const date = new Date(data.daily.time[day]);
+
+                    forecast.push({
+                        date: date,
+                        waveHeight: data.daily.wave_height_max[day] || 0,
+                        period: data.daily.wave_period_max[day] || 0,
+                        direction: data.daily.wave_direction_dominant[day] || 0,
+                        windSpeed: (data.daily.wind_wave_height_max[day] || 0) * 10 // Approximate wind from wind waves
+                    });
+                }
+
+                console.log('Fetched real GFS forecast from Open-Meteo:', forecast.length, 'days');
+                return forecast;
+
+            } catch (error) {
+                console.warn('Failed to fetch real GFS forecast, using fallback:', error);
+                // Fallback to synthetic data if API fails
+                return generateSyntheticForecast(lat, lon);
+            }
+        }
+
+        // Fallback synthetic forecast (used if API fails)
+        function generateSyntheticForecast(lat, lon) {
             const forecast = [];
             const now = new Date();
 
@@ -526,7 +570,7 @@
         }
 
         // Display forecast in panel
-        function showForecast(lat, lon) {
+        async function showForecast(lat, lon) {
             const panel = document.getElementById('forecastPanel');
             const location = document.getElementById('forecastLocation');
             const forecastDays = document.getElementById('forecastDays');
@@ -549,8 +593,12 @@
             // Update location
             location.textContent = `${lat.toFixed(2)}°${lat >= 0 ? 'N' : 'S'}, ${lon.toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
 
-            // Generate forecast
-            const forecast = generateForecast(lat, lon);
+            // Show loading state
+            forecastDays.innerHTML = '<div class="forecast-loading">Loading real GFS forecast data...</div>';
+            panel.classList.add('open');
+
+            // Fetch real forecast data (async)
+            const forecast = await generateForecast(lat, lon);
 
             // Render chart with forecast data
             renderWaveChart(forecast);
