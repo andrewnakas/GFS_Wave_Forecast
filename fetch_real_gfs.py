@@ -19,22 +19,6 @@ except ImportError:
     import requests
 
 
-def load_land_mask():
-    """Load the pre-generated land mask."""
-    mask_file = Path('land_mask.json')
-
-    if not mask_file.exists():
-        print("Land mask not found. Generating...")
-        import subprocess
-        subprocess.check_call([sys.executable, 'generate_land_mask.py'])
-
-    with open(mask_file, 'r') as f:
-        mask = json.load(f)
-
-    print(f"Loaded land mask: {len(mask[0])} x {len(mask)} grid")
-    return mask
-
-
 def get_latest_gfs_cycle():
     """Determine the latest available GFS cycle."""
     now = datetime.utcnow()
@@ -50,7 +34,7 @@ def get_latest_gfs_cycle():
     return cycle_time
 
 
-def fetch_gfs_wave_grid_simple(land_mask):
+def fetch_gfs_wave_grid_simple():
     """
     Fetch real GFS wave data using a grid sampling approach.
     Since full GRIB2 parsing is complex, we'll sample key points.
@@ -91,10 +75,6 @@ def fetch_gfs_wave_grid_simple(land_mask):
         for x in range(0, nx, sample_step):
             lon = lo1 + (x * dx)
 
-            # Check if land
-            if land_mask[y][x]:
-                continue
-
             # Normalize longitude to 0-360 for GFS
             lon_gfs = lon
 
@@ -123,12 +103,6 @@ def fetch_gfs_wave_grid_simple(land_mask):
 
         for x in range(nx):
             lon = lo1 + (x * dx)
-
-            # Check if land
-            if land_mask[y][x]:
-                u_data.append(0.0)
-                v_data.append(0.0)
-                continue
 
             # Find nearest sampled point
             data = find_nearest_sample(y, x, sampled_data, sample_step)
@@ -258,12 +232,9 @@ def main():
     print("Real GFS Wave Data Fetcher")
     print("=" * 60)
 
-    # Load land mask
-    land_mask = load_land_mask()
-
     # Fetch real GFS data (or fallback to synthetic)
     try:
-        wave_data = fetch_gfs_wave_grid_simple(land_mask)
+        wave_data = fetch_gfs_wave_grid_simple()
         print("\nReal GFS data fetched successfully!")
     except Exception as e:
         print(f"\nError fetching real GFS data: {e}")
@@ -271,7 +242,7 @@ def main():
 
         # Import and use synthetic generator as fallback
         from fetch_simple import generate_realistic_synthetic_data
-        wave_data = generate_realistic_synthetic_data(land_mask)
+        wave_data = generate_realistic_synthetic_data()
 
     # Save to JSON
     save_to_json(wave_data)
