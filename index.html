@@ -34,6 +34,29 @@
             image-rendering: auto;
         }
 
+        /* Custom pin marker */
+        .forecast-marker {
+            width: 30px;
+            height: 30px;
+            background: rgba(244, 109, 67, 0.9);
+            border: 3px solid rgba(255, 255, 255, 0.9);
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+        }
+
+        .forecast-marker::after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
         /* Forecast panel */
         .forecast-panel {
             position: fixed;
@@ -215,7 +238,7 @@
     </div>
 
     <!-- Click hint -->
-    <div class="click-hint">Click anywhere to view 10-day wave forecast</div>
+    <div class="click-hint">Click on the ocean to view 10-day wave forecast</div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-velocity@1.9.0/dist/leaflet-velocity.min.js"></script>
@@ -237,6 +260,7 @@
         // Wait for both map and wave data to be ready
         let mapReady = false;
         let dataReady = false;
+        let currentMarker = null;
 
         function tryInitVelocity() {
             if (mapReady && dataReady && window.waveData) {
@@ -253,9 +277,9 @@
                     },
                     data: window.waveData,
                     maxVelocity: 10,
-                    velocityScale: 0.015, // Slightly increased for more visible particles
-                    particleMultiplier: 1/300, // More particles
-                    lineWidth: 3, // Thicker lines for wave-like appearance
+                    velocityScale: 0.015,
+                    particleMultiplier: 1/300,
+                    lineWidth: 6, // Much wider lines for hamburger-style wave appearance
                     colorScale: [
                         '#3288bd',
                         '#66c2a5',
@@ -271,6 +295,38 @@
                 velocityLayer.addTo(map);
                 console.log('Wave velocity layer added successfully');
             }
+        }
+
+        // Check if a location is on land by sampling wave data
+        function isLand(lat, lon) {
+            if (!window.waveData || !window.waveData[0]) return false;
+
+            const header = window.waveData[0].header;
+            const uData = window.waveData[0].data;
+            const vData = window.waveData[1].data;
+
+            // Normalize longitude to match data format (0-360)
+            let normLon = lon;
+            while (normLon < 0) normLon += 360;
+            while (normLon >= 360) normLon -= 360;
+
+            // Find grid cell
+            const x = Math.floor((normLon - header.lo1) / header.dx);
+            const y = Math.floor((header.la1 - lat) / header.dy);
+
+            // Check bounds
+            if (x < 0 || x >= header.nx || y < 0 || y >= header.ny) {
+                return true; // Out of bounds = land
+            }
+
+            // Calculate index (row-major order: north to south, west to east)
+            const index = y * header.nx + x;
+
+            // If both u and v are zero, it's land
+            const u = uData[index];
+            const v = vData[index];
+
+            return (u === 0 && v === 0);
         }
 
         // Generate 10-day wave forecast for a location
@@ -337,6 +393,21 @@
             const location = document.getElementById('forecastLocation');
             const content = document.getElementById('forecastContent');
 
+            // Remove previous marker if exists
+            if (currentMarker) {
+                map.removeLayer(currentMarker);
+            }
+
+            // Add new pin marker
+            const icon = L.divIcon({
+                className: 'forecast-marker',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+                popupAnchor: [0, -30]
+            });
+
+            currentMarker = L.marker([lat, lon], { icon: icon }).addTo(map);
+
             // Update location
             location.textContent = `${lat.toFixed(2)}°${lat >= 0 ? 'N' : 'S'}, ${lon.toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
 
@@ -398,12 +469,31 @@
         // Close forecast panel
         function closeForecast() {
             document.getElementById('forecastPanel').classList.remove('open');
+
+            // Remove marker when closing forecast
+            if (currentMarker) {
+                map.removeLayer(currentMarker);
+                currentMarker = null;
+            }
         }
 
         // Handle map clicks
         map.on('click', function(e) {
             const lat = e.latlng.lat;
             const lon = e.latlng.lng;
+
+            // Check if clicked location is on land
+            if (isLand(lat, lon)) {
+                console.log('Clicked on land - no forecast available');
+                // Optionally show a message
+                const panel = document.getElementById('forecastPanel');
+                if (panel.classList.contains('open')) {
+                    closeForecast();
+                }
+                return;
+            }
+
+            // Show forecast for ocean location
             showForecast(lat, lon);
         });
 
