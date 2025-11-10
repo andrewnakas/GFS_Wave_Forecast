@@ -3,96 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GFS Wave Forecast Visualization</title>
-
-    <!-- Leaflet CSS -->
+    <title>GFS Wave Velocity</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css">
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+
+        .leaflet-container {
+            background: #000 !important;
+        }
+    </style>
 </head>
 <body>
-    <div id="app">
-        <!-- Header -->
-        <header>
-            <h1>GFS Wave Forecast Visualization</h1>
-            <div id="status">Loading...</div>
-        </header>
+    <div id="map"></div>
 
-        <!-- Map Container -->
-        <div id="map"></div>
-
-        <!-- Control Panel -->
-        <div id="control-panel">
-            <div class="control-section">
-                <h3>Forecast Time</h3>
-                <div id="time-display">--</div>
-                <input type="range" id="time-slider" min="0" max="100" value="0" step="1">
-                <div class="time-controls">
-                    <button id="play-btn">▶ Play</button>
-                    <button id="pause-btn" style="display:none;">⏸ Pause</button>
-                    <button id="reset-btn">⏮ Reset</button>
-                </div>
-            </div>
-
-            <div class="control-section">
-                <h3>Layer Options</h3>
-                <p style="font-size: 12px; color: #64b5f6; margin-bottom: 10px;">⚡ Enable animations when ready for best performance</p>
-                <label>
-                    <input type="checkbox" id="toggle-vectors">
-                    Show Wave Vectors
-                </label>
-                <label>
-                    <input type="checkbox" id="toggle-particles">
-                    Show Particle Animation
-                </label>
-                <div class="control-group">
-                    <label for="vector-scale">Vector Scale:</label>
-                    <input type="range" id="vector-scale" min="1" max="10" value="5" step="0.5">
-                    <span id="vector-scale-value">5</span>
-                </div>
-            </div>
-
-            <div class="control-section">
-                <h3>Wave Info</h3>
-                <div id="wave-info">
-                    <p>Click on map for wave data</p>
-                </div>
-            </div>
-
-            <div class="control-section" id="forecast-chart-section" style="display: none;">
-                <h3>Wave Forecast Chart</h3>
-                <canvas id="wave-forecast-chart" style="height: 300px;"></canvas>
-            </div>
-
-            <div class="control-section">
-                <h3>Legend</h3>
-                <div id="legend">
-                    <div class="legend-item">
-                        <div class="legend-gradient"></div>
-                        <div class="legend-labels">
-                            <span>0m</span>
-                            <span>2m</span>
-                            <span>4m</span>
-                            <span>6m</span>
-                            <span>8m+</span>
-                        </div>
-                    </div>
-                    <p class="legend-description">Wave Height</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-velocity@1.9.0/dist/leaflet-velocity.min.js"></script>
+    <script src="wave-data.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map', {
+            center: [20, 0],
+            zoom: 2,
+            zoomControl: true,
+            attributionControl: false
+        });
 
-    <!-- Application JS -->
-    <script src="js/dataFetcher.js"></script>
-    <script src="js/waveLayer.js"></script>
-    <script src="js/map.js"></script>
+        // Add dark tiles
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        // Wait for both map and wave data to be ready
+        let mapReady = false;
+        let dataReady = false;
+
+        function tryInitVelocity() {
+            if (mapReady && dataReady && window.waveData) {
+                console.log('Initializing velocity layer...');
+
+                const velocityLayer = L.velocityLayer({
+                    displayValues: true,
+                    displayOptions: {
+                        velocityType: 'Wave',
+                        position: 'bottomleft',
+                        emptyString: 'No wave data',
+                        showCardinal: true,
+                        speedUnit: 'm/s'
+                    },
+                    data: window.waveData,
+                    maxVelocity: 10,
+                    velocityScale: 0.01,
+                    colorScale: [
+                        '#3288bd',
+                        '#66c2a5',
+                        '#abdda4',
+                        '#e6f598',
+                        '#fee08b',
+                        '#fdae61',
+                        '#f46d43',
+                        '#d53e4f'
+                    ]
+                });
+
+                velocityLayer.addTo(map);
+                console.log('Wave velocity layer added successfully');
+            }
+        }
+
+        map.whenReady(function() {
+            console.log('Map ready');
+            mapReady = true;
+            tryInitVelocity();
+        });
+
+        window.addEventListener('waveDataReady', function() {
+            console.log('Wave data ready');
+            dataReady = true;
+            tryInitVelocity();
+        });
+    </script>
 </body>
 </html>
