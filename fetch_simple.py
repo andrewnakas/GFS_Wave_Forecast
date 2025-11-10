@@ -43,6 +43,114 @@ def wave_to_uv(direction, height):
     return u, v
 
 
+def is_land(lat, lon):
+    """
+    Check if a coordinate is on land using continental bounding boxes.
+    Returns True if land, False if ocean.
+    """
+    # Normalize longitude to -180 to 180
+    while lon > 180:
+        lon -= 360
+    while lon < -180:
+        lon += 360
+
+    # Antarctica
+    if lat < -60:
+        return True
+
+    # Greenland
+    if lat > 60 and lat < 84 and lon > -75 and lon < -10:
+        return True
+
+    # North America
+    if lat > 15 and lat < 72:
+        # Western coast (Alaska to Mexico)
+        if lon > -170 and lon < -105:
+            return True
+        # Eastern portion
+        if lat > 25 and lon > -105 and lon < -50:
+            return True
+        # Canada/US northern portion
+        if lat > 45 and lon > -105 and lon < -52:
+            return True
+
+    # Central America
+    if lat > 7 and lat < 20 and lon > -92 and lon < -77:
+        return True
+
+    # South America
+    if lat > -56 and lat < 13:
+        if lon > -82 and lon < -34:
+            return True
+
+    # Europe
+    if lat > 35 and lat < 72:
+        if lon > -10 and lon < 40:
+            return True
+
+    # Africa
+    if lat > -35 and lat < 38:
+        if lon > -18 and lon < 52:
+            return True
+
+    # Middle East
+    if lat > 12 and lat < 42:
+        if lon > 34 and lon < 63:
+            return True
+
+    # Asia - Western (Russia, Central Asia)
+    if lat > 35 and lat < 78:
+        if lon > 40 and lon < 180:
+            return True
+
+    # Asia - Southern (India, SE Asia)
+    if lat > 0 and lat < 35:
+        if lon > 60 and lon < 105:
+            return True
+
+    # Southeast Asia / Indonesia
+    if lat > -10 and lat < 25:
+        if lon > 95 and lon < 125:
+            return True
+
+    # China / East Asia
+    if lat > 20 and lat < 55:
+        if lon > 100 and lon < 145:
+            return True
+
+    # Japan
+    if lat > 30 and lat < 46:
+        if lon > 128 and lon < 146:
+            return True
+
+    # Australia
+    if lat > -44 and lat < -10:
+        if lon > 113 and lon < 154:
+            return True
+
+    # New Zealand
+    if lat > -47 and lat < -34:
+        if lon > 166 and lon < 179:
+            return True
+
+    # Madagascar
+    if lat > -26 and lat < -12:
+        if lon > 43 and lon < 51:
+            return True
+
+    # Iceland
+    if lat > 63 and lat < 67:
+        if lon > -25 and lon < -13:
+            return True
+
+    # British Isles
+    if lat > 50 and lat < 61:
+        if lon > -11 and lon < 2:
+            return True
+
+    return False
+
+
 def generate_realistic_synthetic_data():
     """
     Generate more realistic synthetic wave data based on climatology.
@@ -61,6 +169,8 @@ def generate_realistic_synthetic_data():
 
     u_data = []
     v_data = []
+    land_count = 0
+    ocean_count = 0
 
     # Current "time" for wave phase
     now = datetime.utcnow()
@@ -74,6 +184,16 @@ def generate_realistic_synthetic_data():
 
             # Normalize longitude to -180 to 180
             lon_norm = lon if lon <= 180 else lon - 360
+
+            # Check if this point is on land
+            if is_land(lat, lon_norm):
+                # Land: set velocity to exactly 0
+                u_data.append(0.0)
+                v_data.append(0.0)
+                land_count += 1
+                continue
+
+            ocean_count += 1
 
             # Default values
             wave_height = 0.5
@@ -134,7 +254,9 @@ def generate_realistic_synthetic_data():
             u_data.append(u)
             v_data.append(v)
 
-    print(f"Generated {len(u_data)} data points")
+    print(f"Generated {len(u_data)} total data points")
+    print(f"  Ocean points: {ocean_count} ({ocean_count/len(u_data)*100:.1f}%)")
+    print(f"  Land points: {land_count} ({land_count/len(u_data)*100:.1f}%)")
 
     return {
         'header': {
