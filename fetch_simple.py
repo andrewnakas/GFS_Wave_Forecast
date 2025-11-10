@@ -19,20 +19,6 @@ except ImportError:
     import requests
 
 
-def load_land_mask():
-    """Load the pre-generated land mask."""
-    mask_file = Path('land_mask.json')
-
-    if not mask_file.exists():
-        print("Land mask not found. Generating...")
-        import subprocess
-        subprocess.check_call([sys.executable, 'generate_land_mask.py'])
-
-    with open(mask_file, 'r') as f:
-        mask = json.load(f)
-
-    print(f"Loaded land mask: {len(mask[0])} x {len(mask)} grid")
-    return mask
 
 
 def wave_to_uv(direction, height):
@@ -59,7 +45,7 @@ def wave_to_uv(direction, height):
     return u, v
 
 
-def generate_realistic_synthetic_data(land_mask):
+def generate_realistic_synthetic_data():
     """
     Generate more realistic synthetic wave data based on climatology.
     Uses real-world wave patterns.
@@ -77,8 +63,6 @@ def generate_realistic_synthetic_data(land_mask):
 
     u_data = []
     v_data = []
-    land_count = 0
-    ocean_count = 0
 
     # Current "time" for wave phase
     now = datetime.utcnow()
@@ -92,16 +76,6 @@ def generate_realistic_synthetic_data(land_mask):
 
             # Normalize longitude to -180 to 180
             lon_norm = lon if lon <= 180 else lon - 360
-
-            # Check if this point is on land using pre-computed mask
-            if land_mask[y][x]:  # True = land
-                # Land: set velocity to exactly 0
-                u_data.append(0.0)
-                v_data.append(0.0)
-                land_count += 1
-                continue
-
-            ocean_count += 1
 
             # Default values
             wave_height = 0.5
@@ -163,8 +137,6 @@ def generate_realistic_synthetic_data(land_mask):
             v_data.append(v)
 
     print(f"Generated {len(u_data)} total data points")
-    print(f"  Ocean points: {ocean_count} ({ocean_count/len(u_data)*100:.1f}%)")
-    print(f"  Land points: {land_count} ({land_count/len(u_data)*100:.1f}%)")
 
     return {
         'header': {
@@ -229,14 +201,11 @@ def save_to_json(data, filename='gfs-wave-data.json'):
 def main():
     """Main function."""
     print("=" * 60)
-    print("GFS Wave Data Generator with Precise Land Masking")
+    print("GFS Wave Data Generator")
     print("=" * 60)
 
-    # Load the pre-generated land mask
-    land_mask = load_land_mask()
-
-    # Generate enhanced synthetic data with precise land masking
-    wave_data = generate_realistic_synthetic_data(land_mask)
+    # Generate synthetic wave data
+    wave_data = generate_realistic_synthetic_data()
 
     # Save to JSON
     save_to_json(wave_data)

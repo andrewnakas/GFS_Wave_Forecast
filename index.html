@@ -260,12 +260,10 @@
     </div>
 
     <!-- Click hint -->
-    <div class="click-hint">Click on the ocean to view 10-day wave forecast</div>
+    <div class="click-hint">Click anywhere to view 10-day wave forecast</div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-velocity@1.9.0/dist/leaflet-velocity.min.js"></script>
-    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-    <script src="https://unpkg.com/topojson@3/dist/topojson.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="wave-data.js"></script>
     <script>
@@ -286,7 +284,6 @@
         let mapReady = false;
         let dataReady = false;
         let currentMarker = null;
-        let landPolygons = null;
         let waveChart = null;
 
         function tryInitVelocity() {
@@ -324,40 +321,6 @@
             }
         }
 
-        // Load land polygons from Natural Earth data
-        async function loadLandPolygons() {
-            try {
-                console.log('Loading land polygons from Natural Earth...');
-                const response = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json');
-                const data = await response.json();
-
-                // Convert TopoJSON to GeoJSON
-                landPolygons = topojson.feature(data, data.objects.land);
-                console.log('Land polygons loaded successfully');
-            } catch (error) {
-                console.error('Failed to load land polygons:', error);
-                // Fallback to simple approach if loading fails
-                landPolygons = null;
-            }
-        }
-
-        // Check if a location is on land using proper point-in-polygon testing
-        function isLand(lat, lon) {
-            if (!landPolygons) {
-                return false; // If polygons not loaded, allow all clicks
-            }
-
-            try {
-                // Create turf point (note: turf uses [lon, lat] order!)
-                const point = turf.point([lon, lat]);
-
-                // Check if point is within any land polygon
-                return turf.booleanPointInPolygon(point, landPolygons);
-            } catch (error) {
-                console.error('Error in land detection:', error);
-                return false; // On error, allow the click
-            }
-        }
 
         // Generate 10-day wave forecast for a location
         async function generateForecast(lat, lon) {
@@ -671,18 +634,7 @@
             const lat = e.latlng.lat;
             const lon = e.latlng.lng;
 
-            // Check if clicked location is on land
-            if (isLand(lat, lon)) {
-                console.log('Clicked on land - no forecast available');
-                // Optionally show a message
-                const panel = document.getElementById('forecastPanel');
-                if (panel.classList.contains('open')) {
-                    closeForecast();
-                }
-                return;
-            }
-
-            // Show forecast for ocean location
+            // Show forecast for any location
             showForecast(lat, lon);
         });
 
@@ -697,9 +649,6 @@
             dataReady = true;
             tryInitVelocity();
         });
-
-        // Load land polygons for accurate land detection
-        loadLandPolygons();
     </script>
 </body>
 </html>
