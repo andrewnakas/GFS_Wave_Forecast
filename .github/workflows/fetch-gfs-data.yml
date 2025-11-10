@@ -21,11 +21,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install xarray cfgrib requests numpy eccodes
+          pip install requests
 
       - name: Fetch GFS wave data
         run: |
-          python fetch_gfs_data.py
+          python fetch_simple.py
 
       - name: Commit and push if changed
         run: |
