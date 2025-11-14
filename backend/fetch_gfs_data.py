@@ -32,15 +32,24 @@ class GFSWaveDataFetcher:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # OpenDAP endpoints for GFS Wave data
-        # Primary: UCAR THREDDS server
+        # OpenDAP endpoints for GFS Wave data (WAVEWATCH III)
+        # Free government sources
         self.opendap_urls = [
-            'https://thredds.ucar.edu/thredds/dodsC/grib/NCEP/WW3/Global/Best',
+            # NOAA CoastWatch ERDDAP - Most reliable for recent data
+            'https://coastwatch.pfeg.noaa.gov/erddap/griddap/NWW3_Global_Best',
+            # NOAA NOMADS OpenDAP server
             'https://nomads.ncep.noaa.gov/dods/wave/gfswave',
+            # UCAR THREDDS server
+            'https://thredds.ucar.edu/thredds/dodsC/grib/NCEP/WW3/Global/Best',
+            # NOAA AOML ERDDAP
+            'https://erddap.aoml.noaa.gov/erddap/griddap/ww3_global',
         ]
 
-        # Alternative: Direct GRIB file access
-        self.grib_base_url = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod'
+        # Alternative: Direct GRIB file access from NOAA FTP
+        self.grib_base_url = 'https://ftpprd.ncep.noaa.gov/data/nccf/com/gfs/prod'
+
+        # AWS Open Data (backup)
+        self.aws_base_url = 'https://noaa-gfs-bdp-pds.s3.amazonaws.com'
 
     def fetch_latest_forecast(self, max_timesteps=17):
         """

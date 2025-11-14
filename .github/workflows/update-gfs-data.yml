@@ -113,14 +113,13 @@ jobs:
         if [ -f "gfs-wave-data.json" ]; then
           FILE_SIZE=$(ls -lh gfs-wave-data.json | awk '{print $5}')
 
-          # Safely extract data with error handling
-          DATA_INFO=$(python3 -c "
+          # Create Python script to safely extract data
+          cat > /tmp/extract_info.py << 'PYEOF'
 import json
 import sys
 try:
     with open('gfs-wave-data.json', 'r') as f:
         data = json.load(f)
-
     if isinstance(data, dict):
         grid_points = len(data.get('gridData', []))
         time_steps = len(data.get('timeSteps', []))
@@ -131,8 +130,9 @@ try:
         print('0|0|Invalid data format')
 except Exception as e:
     print(f'0|0|Error: {str(e)}')
-" 2>&1)
+PYEOF
 
+          DATA_INFO=$(python3 /tmp/extract_info.py 2>&1)
           IFS='|' read -r DATA_POINTS TIME_STEPS SOURCE <<< "$DATA_INFO"
 
           echo "### Data Summary" >> $GITHUB_STEP_SUMMARY
@@ -141,7 +141,7 @@ except Exception as e:
           echo "- **Time Steps**: ${TIME_STEPS}" >> $GITHUB_STEP_SUMMARY
           echo "- **File Size**: ${FILE_SIZE}" >> $GITHUB_STEP_SUMMARY
 
-          if [ "$DATA_POINTS" -gt "0" ]; then
+          if [ "$DATA_POINTS" -gt "0" ] 2>/dev/null; then
             echo "- **Status**: ✓ Updated successfully" >> $GITHUB_STEP_SUMMARY
           else
             echo "- **Status**: ⚠️ Data file exists but may be empty or invalid" >> $GITHUB_STEP_SUMMARY
