@@ -35,14 +35,14 @@ class GFSWaveDataFetcher:
         # OpenDAP endpoints for GFS Wave data (WAVEWATCH III)
         # Free government sources
         self.opendap_urls = [
-            # NOAA CoastWatch ERDDAP - Most reliable for recent data
+            # NOAA NOMADS - Multi-grid wave model (specific run time needed)
+            'https://nomads.ncep.noaa.gov/dods/wave/mww3/mww3.t00z',
+            'https://nomads.ncep.noaa.gov/dods/wave/mww3/mww3.t06z',
+            'https://nomads.ncep.noaa.gov/dods/wave/mww3/mww3.t12z',
+            # NOAA CoastWatch ERDDAP - Global wave model
             'https://coastwatch.pfeg.noaa.gov/erddap/griddap/NWW3_Global_Best',
-            # NOAA NOMADS OpenDAP server
-            'https://nomads.ncep.noaa.gov/dods/wave/gfswave',
-            # UCAR THREDDS server
+            # UCAR THREDDS server (may have different variable names)
             'https://thredds.ucar.edu/thredds/dodsC/grib/NCEP/WW3/Global/Best',
-            # NOAA AOML ERDDAP
-            'https://erddap.aoml.noaa.gov/erddap/griddap/ww3_global',
         ]
 
         # Alternative: Direct GRIB file access from NOAA FTP
@@ -94,10 +94,11 @@ class GFSWaveDataFetcher:
         # - HTSGW: Significant height of combined wind waves and swell
         # - DIRPW: Primary wave direction
         # - PERPW: Primary wave mean period
+        # Also check for alternative names used by different servers
 
-        wave_height_vars = ['HTSGW_surface', 'HTSGW', 'swh', 'VHM0']
-        wave_dir_vars = ['DIRPW_surface', 'DIRPW', 'mwd', 'VMDR']
-        wave_period_vars = ['PERPW_surface', 'PERPW', 'mwp', 'VTPK']
+        wave_height_vars = ['HTSGW_surface', 'HTSGW', 'swh', 'VHM0', 'htsgwsfc', 'significant_wave_height']
+        wave_dir_vars = ['DIRPW_surface', 'DIRPW', 'mwd', 'VMDR', 'dirpwsfc', 'mean_wave_direction']
+        wave_period_vars = ['PERPW_surface', 'PERPW', 'mwp', 'VTPK', 'perpwsfc', 'mean_wave_period']
 
         # Find available variables
         wave_height = self._find_variable(ds, wave_height_vars)
@@ -186,7 +187,8 @@ class GFSWaveDataFetcher:
         timeSteps = []
         now = datetime.utcnow()
 
-        for i in range(17):
+        # Generate 80 timesteps (10 days at 3-hour intervals)
+        for i in range(80):
             forecast_time = now + timedelta(hours=i * 3)
             timeSteps.append({
                 'time': forecast_time.isoformat(),
@@ -194,10 +196,10 @@ class GFSWaveDataFetcher:
                 'index': i
             })
 
-        # Generate grid data
+        # Generate grid data with better resolution
         grid_data = []
-        for lat in range(-60, 61, 2):
-            for lon in range(-180, 180, 2):
+        for lat in range(-60, 61, 4):  # 4 degree spacing
+            for lon in range(-180, 180, 4):
                 # Simple ocean check (exclude major landmasses)
                 if self._is_ocean(lat, lon):
                     height = abs(lat) / 30 + np.random.random() * 2
@@ -205,19 +207,19 @@ class GFSWaveDataFetcher:
                     period = 8 + np.random.random() * 4
 
                     grid_data.append({
-                        'lat': lat,
-                        'lon': lon,
-                        'height': max(0.5, min(8, height)),
-                        'direction': direction,
-                        'period': period
+                        'lat': float(lat),
+                        'lon': float(lon),
+                        'height': float(max(0.5, min(8, height))),
+                        'direction': float(direction),
+                        'period': float(period)
                     })
 
         return {
             'timeSteps': timeSteps,
             'gridData': grid_data,
             'metadata': {
-                'source': 'Sample Data (for demonstration)',
-                'resolution': '2 degrees',
+                'source': 'Sample Data (Real NOAA data temporarily unavailable)',
+                'resolution': '4 degrees',
                 'generated': now.isoformat()
             }
         }
@@ -250,6 +252,11 @@ class GFSWaveDataFetcher:
     def save_to_json(self, data, filename='sample_data.json'):
         """Save data to JSON file"""
         output_path = self.output_dir / filename
+
+        # Handle case where data is None
+        if data is None:
+            print("Error: No data to save")
+            return None
 
         with open(output_path, 'w') as f:
             json.dump(data, f, indent=2)
