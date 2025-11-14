@@ -39,7 +39,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install xarray netCDF4 numpy requests
+        pip install xarray netCDF4 numpy pandas requests
 
     - name: Fetch real GFS wave data
       run: |
