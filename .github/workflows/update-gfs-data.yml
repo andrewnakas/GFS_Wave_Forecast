@@ -42,16 +42,41 @@ jobs:
 
     - name: Fetch real GFS wave data
       run: |
+        echo "Fetching GFS wave data..."
         cd backend
-        python fetch_gfs_data.py
+
+        # Run the fetch script
+        if python3 fetch_gfs_data.py; then
+          echo "✓ Data fetch script completed"
+        else
+          echo "⚠️ Data fetch script failed, will check for generated data"
+        fi
+
         cd ..
 
-        # Move generated data to root for GitHub Pages
-        if [ -f "backend/../data/sample_data.json" ]; then
-          cp backend/../data/sample_data.json gfs-wave-data.json
+        # Find and move generated data to root for GitHub Pages
+        if [ -f "data/sample_data.json" ]; then
+          cp data/sample_data.json gfs-wave-data.json
           echo "✓ Real GFS wave data fetched successfully"
+        elif [ -f "backend/data/sample_data.json" ]; then
+          cp backend/data/sample_data.json gfs-wave-data.json
+          echo "✓ Data found in backend/data"
+        elif [ -f "backend/../data/sample_data.json" ]; then
+          cp backend/../data/sample_data.json gfs-wave-data.json
+          echo "✓ Data found in parent data directory"
         else
-          echo "⚠️  Failed to fetch real data, using fallback"
+          echo "⚠️ No data file found, keeping existing gfs-wave-data.json"
+          if [ ! -f "gfs-wave-data.json" ]; then
+            echo "✗ No existing data file, workflow will fail"
+            exit 1
+          fi
+        fi
+
+        # Verify the data file is valid JSON
+        if python3 -c "import json; json.load(open('gfs-wave-data.json'))" 2>/dev/null; then
+          echo "✓ Data file is valid JSON"
+        else
+          echo "✗ Data file is not valid JSON"
           exit 1
         fi
 
@@ -87,16 +112,40 @@ jobs:
 
         if [ -f "gfs-wave-data.json" ]; then
           FILE_SIZE=$(ls -lh gfs-wave-data.json | awk '{print $5}')
-          DATA_POINTS=$(python -c "import json; data=json.load(open('gfs-wave-data.json')); print(len(data.get('gridData', [])))")
-          TIME_STEPS=$(python -c "import json; data=json.load(open('gfs-wave-data.json')); print(len(data.get('timeSteps', [])))")
-          SOURCE=$(python -c "import json; data=json.load(open('gfs-wave-data.json')); print(data.get('metadata', {}).get('source', 'Unknown'))")
+
+          # Safely extract data with error handling
+          DATA_INFO=$(python3 -c "
+import json
+import sys
+try:
+    with open('gfs-wave-data.json', 'r') as f:
+        data = json.load(f)
+
+    if isinstance(data, dict):
+        grid_points = len(data.get('gridData', []))
+        time_steps = len(data.get('timeSteps', []))
+        metadata = data.get('metadata', {})
+        source = metadata.get('source', 'Unknown') if isinstance(metadata, dict) else 'Unknown'
+        print(f'{grid_points}|{time_steps}|{source}')
+    else:
+        print('0|0|Invalid data format')
+except Exception as e:
+    print(f'0|0|Error: {str(e)}')
+" 2>&1)
+
+          IFS='|' read -r DATA_POINTS TIME_STEPS SOURCE <<< "$DATA_INFO"
 
           echo "### Data Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **Source**: ${SOURCE}" >> $GITHUB_STEP_SUMMARY
           echo "- **Grid Points**: ${DATA_POINTS}" >> $GITHUB_STEP_SUMMARY
           echo "- **Time Steps**: ${TIME_STEPS}" >> $GITHUB_STEP_SUMMARY
           echo "- **File Size**: ${FILE_SIZE}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: ✓ Updated successfully" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$DATA_POINTS" -gt "0" ]; then
+            echo "- **Status**: ✓ Updated successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status**: ⚠️ Data file exists but may be empty or invalid" >> $GITHUB_STEP_SUMMARY
+          fi
         else
-          echo "- **Status**: ✗ Failed to generate data" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✗ Failed to generate data file" >> $GITHUB_STEP_SUMMARY
         fi
