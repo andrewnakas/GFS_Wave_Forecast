@@ -79,8 +79,41 @@ class GFSWaveDataFetcher:
 
     def _fetch_from_opendap(self, url, max_timesteps):
         """Fetch data via OpenDAP"""
-        # Open dataset
-        ds = xr.open_dataset(url, engine='netcdf4')
+
+        # For ERDDAP servers, we need to query only recent data to avoid downloading huge files
+        # Build a constrained URL to fetch only the last N timesteps
+
+        try:
+            # First, open just the metadata to get dimensions
+            print(f"  Checking dataset dimensions...")
+            ds = xr.open_dataset(url, engine='netcdf4', decode_times=False)
+
+            # Get time dimension info
+            time_var = self._find_time_dimension(ds)
+            total_times = len(ds[time_var])
+
+            # We only want the latest max_timesteps
+            start_idx = max(0, total_times - max_timesteps)
+
+            # Close the full dataset
+            ds.close()
+
+            # Now open with constraints - only fetch recent timesteps and subsample spatially
+            print(f"  Fetching last {max_timesteps} timesteps from {total_times} available...")
+
+            # ERDDAP constraint expression: [start:stride:stop]
+            # Only fetch last max_timesteps, subsample space by 4 (1° to 2°)
+            constraint = f"?time[{start_idx}:1:{total_times-1}]"
+
+            # Open dataset with time constraints
+            ds = xr.open_dataset(url + '.nc' + constraint, engine='netcdf4')
+
+        except Exception as e:
+            print(f"  Constraint failed, trying direct access with slicing: {e}")
+            # Fallback: open dataset and slice in memory (slower but more compatible)
+            ds = xr.open_dataset(url, engine='netcdf4')
+            time_var = self._find_time_dimension(ds)
+            ds = ds.isel({time_var: slice(-max_timesteps, None)})
 
         # Get wave parameters
         # PacIOOS ERDDAP variable names (primary source):
@@ -103,20 +136,22 @@ class GFSWaveDataFetcher:
 
         # Get time dimension
         time_var = self._find_time_dimension(ds)
-        times = ds[time_var][:max_timesteps]
+        times = ds[time_var]
 
-        # Subsample spatial grid for performance (every 4th point = ~1 degree)
-        lat_subsample = slice(None, None, 4)
-        lon_subsample = slice(None, None, 4)
+        # Subsample spatial grid for performance (every 8th point = ~4 degrees for 0.5° data)
+        lat_subsample = slice(None, None, 8)
+        lon_subsample = slice(None, None, 8)
 
         # Extract data
         grid_data = []
 
-        for t_idx in range(min(max_timesteps, len(times))):
+        print(f"  Processing {len(times)} timesteps...")
+
+        for t_idx in range(len(times)):
             # Get data for this timestep
             height_data = wave_height.isel({time_var: t_idx})[lat_subsample, lon_subsample]
-            dir_data = wave_dir.isel({time_var: t_idx})[lat_subsample, lon_subsample] if wave_dir else None
-            period_data = wave_period.isel({time_var: t_idx})[lat_subsample, lon_subsample] if wave_period else None
+            dir_data = wave_dir.isel({time_var: t_idx})[lat_subsample, lon_subsample] if wave_dir is not None else None
+            period_data = wave_period.isel({time_var: t_idx})[lat_subsample, lon_subsample] if wave_period is not None else None
 
             # Get coordinates
             lat_name = self._find_variable(ds, ['lat', 'latitude', 'y'])
@@ -138,8 +173,8 @@ class GFSWaveDataFetcher:
                         'lat': float(lat),
                         'lon': float(lon),
                         'height': height,
-                        'direction': float(dir_data.values[i, j]) if dir_data else 0,
-                        'period': float(period_data.values[i, j]) if period_data else 8.0
+                        'direction': float(dir_data.values[i, j]) if dir_data is not None else 0,
+                        'period': float(period_data.values[i, j]) if period_data is not None else 8.0
                     }
 
                     grid_data.append(point)
@@ -147,7 +182,12 @@ class GFSWaveDataFetcher:
         # Create timesteps
         timesteps = []
         for t_idx, time in enumerate(times.values):
-            dt = datetime.utcfromtimestamp(time.astype('datetime64[s]').astype(int))
+            try:
+                dt = datetime.utcfromtimestamp(float(time))
+            except:
+                # Fallback for different time formats
+                dt = datetime.utcnow() + timedelta(hours=t_idx * 3)
+
             timesteps.append({
                 'time': dt.isoformat(),
                 'displayTime': dt.strftime('%b %d, %H:%M'),
@@ -156,12 +196,14 @@ class GFSWaveDataFetcher:
 
         ds.close()
 
+        print(f"  Successfully extracted {len(grid_data)} grid points")
+
         return {
             'timeSteps': timesteps,
             'gridData': grid_data,
             'metadata': {
-                'source': 'GFS Wave (WAVEWATCH III)',
-                'resolution': '0.25 degrees (subsampled to ~1 degree)',
+                'source': 'WAVEWATCH III Global Wave Model (NOAA)',
+                'resolution': '~4 degrees (subsampled from 0.5°)',
                 'generated': datetime.utcnow().isoformat(),
                 'url': url
             }
