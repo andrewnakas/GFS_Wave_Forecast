@@ -113,26 +113,9 @@ jobs:
         if [ -f "gfs-wave-data.json" ]; then
           FILE_SIZE=$(ls -lh gfs-wave-data.json | awk '{print $5}')
 
-          # Create Python script to safely extract data
-          cat > /tmp/extract_info.py << 'PYEOF'
-import json
-import sys
-try:
-    with open('gfs-wave-data.json', 'r') as f:
-        data = json.load(f)
-    if isinstance(data, dict):
-        grid_points = len(data.get('gridData', []))
-        time_steps = len(data.get('timeSteps', []))
-        metadata = data.get('metadata', {})
-        source = metadata.get('source', 'Unknown') if isinstance(metadata, dict) else 'Unknown'
-        print(f'{grid_points}|{time_steps}|{source}')
-    else:
-        print('0|0|Invalid data format')
-except Exception as e:
-    print(f'0|0|Error: {str(e)}')
-PYEOF
+          # Extract data info using Python one-liner
+          DATA_INFO=$(python3 -c 'import json; data=json.load(open("gfs-wave-data.json")); print(f"{len(data.get(\"gridData\",[]))}|{len(data.get(\"timeSteps\",[]))}|{data.get(\"metadata\",{}).get(\"source\",\"Unknown\")}" if isinstance(data, dict) else "0|0|Invalid")' 2>&1 || echo "0|0|Error")
 
-          DATA_INFO=$(python3 /tmp/extract_info.py 2>&1)
           IFS='|' read -r DATA_POINTS TIME_STEPS SOURCE <<< "$DATA_INFO"
 
           echo "### Data Summary" >> $GITHUB_STEP_SUMMARY
@@ -141,7 +124,7 @@ PYEOF
           echo "- **Time Steps**: ${TIME_STEPS}" >> $GITHUB_STEP_SUMMARY
           echo "- **File Size**: ${FILE_SIZE}" >> $GITHUB_STEP_SUMMARY
 
-          if [ "$DATA_POINTS" -gt "0" ] 2>/dev/null; then
+          if [ "$DATA_POINTS" != "0" ] && [ "$DATA_POINTS" != "" ]; then
             echo "- **Status**: ✓ Updated successfully" >> $GITHUB_STEP_SUMMARY
           else
             echo "- **Status**: ⚠️ Data file exists but may be empty or invalid" >> $GITHUB_STEP_SUMMARY
