@@ -33,23 +33,16 @@ class GFSWaveDataFetcher:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # OpenDAP endpoints for GFS Wave data (WAVEWATCH III)
-        # Free government sources
+        # Free government sources - tested and working
         self.opendap_urls = [
-            # NOAA NOMADS - Multi-grid wave model (specific run time needed)
-            'https://nomads.ncep.noaa.gov/dods/wave/mww3/mww3.t00z',
-            'https://nomads.ncep.noaa.gov/dods/wave/mww3/mww3.t06z',
-            'https://nomads.ncep.noaa.gov/dods/wave/mww3/mww3.t12z',
-            # NOAA CoastWatch ERDDAP - Global wave model
+            # PacIOOS Hawaii ERDDAP - Working with WW3 global model
+            'https://pae-paha.pacioos.hawaii.edu/erddap/griddap/ww3_global',
+            # NOAA CoastWatch ERDDAP - Alternative
             'https://coastwatch.pfeg.noaa.gov/erddap/griddap/NWW3_Global_Best',
-            # UCAR THREDDS server (may have different variable names)
-            'https://thredds.ucar.edu/thredds/dodsC/grib/NCEP/WW3/Global/Best',
         ]
 
-        # Alternative: Direct GRIB file access from NOAA FTP
-        self.grib_base_url = 'https://ftpprd.ncep.noaa.gov/data/nccf/com/gfs/prod'
-
-        # AWS Open Data (backup)
-        self.aws_base_url = 'https://noaa-gfs-bdp-pds.s3.amazonaws.com'
+        # HTTPS access to GRIB files (modern NOAA approach)
+        self.grib_https_url = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod'
 
     def fetch_latest_forecast(self, max_timesteps=17):
         """
@@ -90,15 +83,15 @@ class GFSWaveDataFetcher:
         ds = xr.open_dataset(url, engine='netcdf4')
 
         # Get wave parameters
-        # Common variable names in GFS Wave:
-        # - HTSGW: Significant height of combined wind waves and swell
-        # - DIRPW: Primary wave direction
-        # - PERPW: Primary wave mean period
+        # PacIOOS ERDDAP variable names (primary source):
+        # - Thgt: Significant wave height (meters)
+        # - Tdir: Peak wave direction (degrees)
+        # - Tper: Peak wave period (seconds)
         # Also check for alternative names used by different servers
 
-        wave_height_vars = ['HTSGW_surface', 'HTSGW', 'swh', 'VHM0', 'htsgwsfc', 'significant_wave_height']
-        wave_dir_vars = ['DIRPW_surface', 'DIRPW', 'mwd', 'VMDR', 'dirpwsfc', 'mean_wave_direction']
-        wave_period_vars = ['PERPW_surface', 'PERPW', 'mwp', 'VTPK', 'perpwsfc', 'mean_wave_period']
+        wave_height_vars = ['Thgt', 'HTSGW_surface', 'HTSGW', 'swh', 'VHM0', 'htsgwsfc', 'significant_wave_height']
+        wave_dir_vars = ['Tdir', 'DIRPW_surface', 'DIRPW', 'mwd', 'VMDR', 'dirpwsfc', 'mean_wave_direction']
+        wave_period_vars = ['Tper', 'PERPW_surface', 'PERPW', 'mwp', 'VTPK', 'perpwsfc', 'mean_wave_period']
 
         # Find available variables
         wave_height = self._find_variable(ds, wave_height_vars)
@@ -280,10 +273,14 @@ def main():
     data = fetcher.fetch_latest_forecast(max_timesteps=80)
 
     # Save to JSON
-    fetcher.save_to_json(data)
+    result = fetcher.save_to_json(data)
 
-    print("\nDone! Data is ready for visualization.")
-    print(f"Source: {data['metadata']['source']}")
+    if result and data:
+        print("\nDone! Data is ready for visualization.")
+        print(f"Source: {data['metadata']['source']}")
+    else:
+        print("\nWarning: Data fetch failed. No output file generated.")
+        sys.exit(1)
 
 
 if __name__ == '__main__':
