@@ -11,6 +11,9 @@ cron.log
 *.csv
 *.json
 
+# Exception: Allow GFS wave data (updated by GitHub Actions)
+!gfs-wave-data.json
+
 # Python
 __pycache__/
 *.py[cod]
