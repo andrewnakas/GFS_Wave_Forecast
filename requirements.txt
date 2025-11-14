@@ -1,15 +1,13 @@
-# Ski Resort Snow Data Scraper - Python Dependencies
+# GFS Wave Forecast Visualization - Python Dependencies
 
-# Web scraping
+# Core data fetching
+xarray>=2023.1.0
+netCDF4>=1.6.0
+numpy>=1.24.0
 requests>=2.31.0
-beautifulsoup4>=4.12.0
-lxml>=4.9.0
 
-# Scheduling
-schedule>=1.2.0
+# Optional: For better GRIB file support
+# cfgrib>=0.9.10
 
-# Data processing
-python-dateutil>=2.8.0
-
-# Optional: For better data export/analysis
-pandas>=2.0.0
+# Web server (for local testing)
+# No additional dependencies needed - using Python's built-in http.server

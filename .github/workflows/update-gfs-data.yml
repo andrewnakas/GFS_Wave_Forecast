@@ -1,0 +1,102 @@
+name: Update GFS Wave Data
+
+on:
+  # Run every 6 hours to get latest forecast
+  schedule:
+    - cron: '0 */6 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+  # Test on push to feature branches
+  push:
+    branches:
+      - 'claude/**'
+    paths:
+      - 'backend/fetch_gfs_data.py'
+      - '.github/workflows/update-gfs-data.yml'
+
+permissions:
+  contents: write  # Required to push changes
+
+jobs:
+  fetch-data:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: main  # Always update main branch
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install xarray netCDF4 numpy requests
+
+    - name: Fetch real GFS wave data
+      run: |
+        cd backend
+        python fetch_gfs_data.py
+        cd ..
+
+        # Move generated data to root for GitHub Pages
+        if [ -f "backend/../data/sample_data.json" ]; then
+          cp backend/../data/sample_data.json gfs-wave-data.json
+          echo "✓ Real GFS wave data fetched successfully"
+        else
+          echo "⚠️  Failed to fetch real data, using fallback"
+          exit 1
+        fi
+
+    - name: Check for changes
+      id: check_changes
+      run: |
+        if git diff --quiet gfs-wave-data.json; then
+          echo "changed=false" >> $GITHUB_OUTPUT
+          echo "No changes in wave data"
+        else
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "Wave data updated"
+        fi
+
+    - name: Commit and push changes
+      if: steps.check_changes.outputs.changed == 'true'
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "GitHub Actions Bot"
+
+        git add gfs-wave-data.json
+
+        TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+        git commit -m "Update GFS wave data ${TIMESTAMP}"
+
+        git push origin main
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "## GFS Wave Data Update" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f "gfs-wave-data.json" ]; then
+          FILE_SIZE=$(ls -lh gfs-wave-data.json | awk '{print $5}')
+          DATA_POINTS=$(python -c "import json; data=json.load(open('gfs-wave-data.json')); print(len(data.get('gridData', [])))")
+          TIME_STEPS=$(python -c "import json; data=json.load(open('gfs-wave-data.json')); print(len(data.get('timeSteps', [])))")
+          SOURCE=$(python -c "import json; data=json.load(open('gfs-wave-data.json')); print(data.get('metadata', {}).get('source', 'Unknown'))")
+
+          echo "### Data Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source**: ${SOURCE}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Grid Points**: ${DATA_POINTS}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time Steps**: ${TIME_STEPS}" >> $GITHUB_STEP_SUMMARY
+          echo "- **File Size**: ${FILE_SIZE}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✓ Updated successfully" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **Status**: ✗ Failed to generate data" >> $GITHUB_STEP_SUMMARY
+        fi

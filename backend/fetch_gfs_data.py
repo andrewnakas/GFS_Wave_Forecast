@@ -30,7 +30,7 @@ class GFSWaveDataFetcher:
 
     def __init__(self, output_dir='../data'):
         self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # OpenDAP endpoints for GFS Wave data
         # Primary: UCAR THREDDS server
@@ -260,13 +260,14 @@ def main():
 
     fetcher = GFSWaveDataFetcher()
 
-    # Fetch latest forecast
-    data = fetcher.fetch_latest_forecast(max_timesteps=17)
+    # Fetch latest forecast (80 timesteps = 10 days at 3-hour intervals)
+    data = fetcher.fetch_latest_forecast(max_timesteps=80)
 
     # Save to JSON
     fetcher.save_to_json(data)
 
     print("\nDone! Data is ready for visualization.")
+    print(f"Source: {data['metadata']['source']}")
 
 
 if __name__ == '__main__':

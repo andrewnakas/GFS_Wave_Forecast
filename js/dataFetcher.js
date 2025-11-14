@@ -5,8 +5,8 @@
 
 class GFSDataFetcher {
     constructor() {
-        this.baseURL = 'backend/sample_data.json'; // For demo, using local data
-        // In production, this would point to: 'https://thredds.ucar.edu/thredds/dodsC/grib/NCEP/WW3/Global/Best'
+        // Load real GFS wave data (updated every 6 hours by GitHub Actions)
+        this.baseURL = 'gfs-wave-data.json';
         this.data = null;
         this.currentTimeIndex = 0;
         this.timeSteps = [];
