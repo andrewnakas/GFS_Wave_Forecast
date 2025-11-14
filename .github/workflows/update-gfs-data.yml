@@ -27,7 +27,8 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        ref: main  # Always update main branch
+        # Use current branch for testing, main for scheduled runs
+        ref: ${{ github.event_name == 'schedule' && 'main' || github.ref }}
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -102,7 +103,12 @@ jobs:
         TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
         git commit -m "Update GFS wave data ${TIMESTAMP}"
 
-        git push origin main
+        # Push to main for scheduled runs, current branch for testing
+        if [ "${{ github.event_name }}" == "schedule" ]; then
+          git push origin main
+        else
+          git push origin ${{ github.ref_name }}
+        fi
 
     - name: Summary
       if: always()
