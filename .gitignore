@@ -60,3 +60,8 @@ htmlcov/
 # Environment variables
 .env
 .env.local
+
+# GRIB temporary files
+*.grib2
+*.idx
+temp_wave_data.*
