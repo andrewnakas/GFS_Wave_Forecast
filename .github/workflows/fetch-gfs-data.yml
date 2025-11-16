@@ -21,13 +21,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests
+          pip install requests xarray cfgrib
 
       - name: Fetch GFS wave data
         run: |
-          # Fetch real GFS wave data from Open-Meteo API
-          # This fetches actual current wave conditions globally
-          python fetch_real_gfs.py
+          # Fetch real NOAA WAVEWATCH III data from NOMADS GRIB2
+          # This is commercially free and directly from NOAA
+          python fetch_wavewatch3.py
 
       - name: Commit and push if changed
         run: |
