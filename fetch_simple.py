@@ -1,22 +1,199 @@
 #!/usr/bin/env python3
 """
-Simplified GFS wave data fetcher using JSON API endpoints.
-No GRIB2 parsing required - uses pre-processed data.
+Real GFS Wave Data Fetcher from NOAA NOMADS
+Downloads actual wave forecast data from NOAA's operational models.
 """
 
 import json
 import sys
 import math
-from datetime import datetime
+import os
+import subprocess
+from datetime import datetime, timedelta
 from pathlib import Path
 
 try:
     import requests
 except ImportError:
     print("Installing requests...")
-    import subprocess
     subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "requests"])
     import requests
+
+
+def get_latest_gfs_cycle():
+    """
+    Determine the latest available GFS cycle.
+    GFS runs 4 times a day: 00z, 06z, 12z, 18z
+    Data is typically available 3-4 hours after cycle time.
+    """
+    now = datetime.utcnow()
+
+    # GFS cycles
+    cycles = [0, 6, 12, 18]
+
+    # Find the most recent cycle that should be available
+    # Subtract 4 hours to account for processing time
+    adjusted_time = now - timedelta(hours=4)
+
+    current_hour = adjusted_time.hour
+    latest_cycle = max([c for c in cycles if c <= current_hour], default=18)
+
+    # If we're early in the day and no cycle is available, use previous day's last cycle
+    if current_hour < 4:
+        cycle_date = (adjusted_time - timedelta(days=1)).strftime('%Y%m%d')
+        cycle_hour = '18'
+    else:
+        cycle_date = adjusted_time.strftime('%Y%m%d')
+        cycle_hour = f'{latest_cycle:02d}'
+
+    return cycle_date, cycle_hour
+
+
+def download_grib_data(cycle_date, cycle_hour, forecast_hour='000'):
+    """
+    Download wave data from NOAA NOMADS using the simpler global wave model.
+    Uses the 0.25 degree global wave forecast.
+    """
+    # Try different NOAA data sources
+    sources = [
+        # Primary source - latest production data
+        f"https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.{cycle_date}/{cycle_hour}/wave/gridded/gfswave.t{cycle_hour}z.global.0p25.f{forecast_hour}.grib2",
+        # Backup - try 0.16 degree resolution
+        f"https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.{cycle_date}/{cycle_hour}/wave/gridded/gfswave.t{cycle_hour}z.global.0p16.f{forecast_hour}.grib2",
+        # FTP fallback
+        f"ftp://ftpprd.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.{cycle_date}/{cycle_hour}/wave/gridded/gfswave.t{cycle_hour}z.global.0p25.f{forecast_hour}.grib2",
+    ]
+
+    print(f"Attempting to download GFS wave data for cycle {cycle_date} {cycle_hour}Z...")
+
+    for url in sources:
+        try:
+            print(f"Trying: {url}")
+            response = requests.get(url, timeout=60, stream=True)
+
+            if response.status_code == 200:
+                print(f"✓ Successfully accessed data from NOMADS")
+                return response.content, url
+            else:
+                print(f"  Status code: {response.status_code}")
+        except Exception as e:
+            print(f"  Error: {str(e)}")
+            continue
+
+    return None, None
+
+
+def try_parse_with_cfgrib(grib_file):
+    """Try parsing GRIB file with cfgrib/xarray."""
+    try:
+        import xarray as xr
+        import cfgrib
+
+        print("Using cfgrib to parse GRIB2 data...")
+
+        # Open with cfgrib engine
+        ds = xr.open_dataset(
+            grib_file,
+            engine='cfgrib',
+            backend_kwargs={'filter_by_keys': {'stepType': 'instant'}}
+        )
+
+        # Extract wave parameters
+        # Common variable names in GFS wave files
+        var_mappings = {
+            'swh': 'Significant Wave Height',
+            'htsgw': 'Significant Wave Height',
+            'perpw': 'Primary Wave Period',
+            'dirpw': 'Primary Wave Direction',
+            'u': 'U-component',
+            'v': 'V-component'
+        }
+
+        wave_height = None
+        wave_direction = None
+
+        # Try to find wave height
+        for var in ['swh', 'htsgw', 'HTSGW', 'SWH']:
+            if var in ds:
+                wave_height = ds[var].values
+                print(f"  Found wave height: {var}")
+                break
+
+        # Try to find wave direction
+        for var in ['dirpw', 'DIRPW', 'mwd', 'MWD']:
+            if var in ds:
+                wave_direction = ds[var].values
+                print(f"  Found wave direction: {var}")
+                break
+
+        if wave_height is not None and wave_direction is not None:
+            lats = ds.latitude.values if 'latitude' in ds else ds.lat.values
+            lons = ds.longitude.values if 'longitude' in ds else ds.lon.values
+
+            return {
+                'wave_height': wave_height,
+                'wave_direction': wave_direction,
+                'lats': lats,
+                'lons': lons,
+                'method': 'cfgrib'
+            }
+
+        # List available variables
+        print(f"Available variables: {list(ds.variables.keys())}")
+
+    except ImportError:
+        print("cfgrib not available")
+    except Exception as e:
+        print(f"cfgrib error: {e}")
+
+    return None
+
+
+def try_parse_with_pygrib(grib_file):
+    """Try parsing GRIB file with pygrib."""
+    try:
+        import pygrib
+
+        print("Using pygrib to parse GRIB2 data...")
+
+        grbs = pygrib.open(grib_file)
+
+        wave_height = None
+        wave_direction = None
+        lats = None
+        lons = None
+
+        # Iterate through all messages to find wave parameters
+        for grb in grbs:
+            name = grb.name
+            print(f"  Found: {name}")
+
+            if 'Significant height' in name or 'wave height' in name.lower():
+                wave_height = grb.values
+                lats, lons = grb.latlons()
+                print(f"    ✓ Extracted wave height")
+
+            if 'direction' in name.lower() and 'wave' in name.lower():
+                wave_direction = grb.values
+                print(f"    ✓ Extracted wave direction")
+
+        grbs.close()
+
+        if wave_height is not None and wave_direction is not None:
+            return {
+                'wave_height': wave_height,
+                'wave_direction': wave_direction,
+                'lats': lats,
+                'lons': lons,
+                'method': 'pygrib'
+            }
+
+    except ImportError:
+        print("pygrib not available")
+    except Exception as e:
+        print(f"pygrib error: {e}")
+
+    return None
 
 
 def wave_to_uv(direction, height):
@@ -34,7 +211,7 @@ def wave_to_uv(direction, height):
     math_angle = 270 - direction
     radians = math.radians(math_angle)
 
-    # Use wave height as magnitude (scaled)
+    # Use wave height as magnitude (scaled for visualization)
     magnitude = height * 0.5
 
     u = magnitude * math.cos(radians)
@@ -43,105 +220,81 @@ def wave_to_uv(direction, height):
     return u, v
 
 
-def generate_realistic_synthetic_data():
-    """
-    Generate more realistic synthetic wave data based on climatology.
-    Uses real-world wave patterns.
-    """
-    print("Generating enhanced synthetic wave data...")
+def convert_to_leaflet_format(data):
+    """Convert parsed GRIB data to leaflet-velocity JSON format."""
+    import numpy as np
 
-    dx = 2.5
-    dy = 2.5
-    nx = 144  # 360 / 2.5
-    ny = 73   # 180 / 2.5 + 1
-    la1 = 90.0
-    la2 = -90.0
-    lo1 = 0.0
-    lo2 = 357.5
+    wave_height = data['wave_height']
+    wave_direction = data['wave_direction']
+    lats = data['lats']
+    lons = data['lons']
 
+    print(f"\nProcessing wave data...")
+    print(f"  Data shape: {wave_height.shape}")
+    print(f"  Lat range: {lats.min():.2f} to {lats.max():.2f}")
+    print(f"  Lon range: {lons.min():.2f} to {lons.max():.2f}")
+
+    # Handle NaN values when reporting stats
+    valid_heights = wave_height[~np.isnan(wave_height)]
+    if len(valid_heights) > 0:
+        print(f"  Wave height range: {valid_heights.min():.2f} to {valid_heights.max():.2f} m")
+        print(f"  Valid ocean points: {len(valid_heights):,} ({100*len(valid_heights)/wave_height.size:.1f}%)")
+    else:
+        print(f"  Warning: No valid wave height data found")
+
+    # Determine grid parameters
+    if len(wave_height.shape) == 2:
+        ny, nx = wave_height.shape
+    else:
+        # Flatten if needed
+        wave_height = wave_height.reshape(-1)
+        wave_direction = wave_direction.reshape(-1)
+        lats = lats.reshape(-1)
+        lons = lons.reshape(-1)
+        ny, nx = 1, len(wave_height)
+
+    # Calculate grid spacing
+    if len(lats.shape) == 2:
+        lat_1d = lats[:, 0]
+        lon_1d = lons[0, :]
+    else:
+        # Assume regular grid
+        lat_1d = sorted(set(lats.flatten()))
+        lon_1d = sorted(set(lons.flatten()))
+
+    dy = abs(lat_1d[1] - lat_1d[0]) if len(lat_1d) > 1 else 2.5
+    dx = abs(lon_1d[1] - lon_1d[0]) if len(lon_1d) > 1 else 2.5
+
+    la1 = float(lat_1d[0])
+    la2 = float(lat_1d[-1])
+    lo1 = float(lon_1d[0])
+    lo2 = float(lon_1d[-1])
+
+    # Convert to u/v components
     u_data = []
     v_data = []
 
-    # Current "time" for wave phase
-    now = datetime.utcnow()
-    time_phase = now.hour / 24.0
+    flat_height = wave_height.flatten()
+    flat_direction = wave_direction.flatten()
 
-    for y in range(ny):
-        lat = la1 - (y * dy)
+    for h, d in zip(flat_height, flat_direction):
+        # Skip NaN values (land areas) - set to 0
+        if np.isnan(h) or np.isnan(d):
+            u_data.append(0.0)
+            v_data.append(0.0)
+        else:
+            u, v = wave_to_uv(d, h)
+            u_data.append(float(u))
+            v_data.append(float(v))
 
-        for x in range(nx):
-            lon = lo1 + (x * dx)
-
-            # Normalize longitude to -180 to 180
-            lon_norm = lon if lon <= 180 else lon - 360
-
-            # Default values
-            wave_height = 0.5
-            wave_direction = 0
-
-            # Southern Ocean (40-60°S) - Strong westerlies, large waves
-            if -60 < lat < -40:
-                wave_height = 4.0 + math.sin(lon_norm * math.pi / 180) * 1.5
-                wave_direction = 270 + math.sin(lon_norm * math.pi / 90) * 30  # Westerly
-
-            # North Atlantic (40-60°N) - Storm track
-            elif 40 < lat < 60 and -60 < lon_norm < 10:
-                wave_height = 3.5 + math.cos(lon_norm * math.pi / 90) * 1.0
-                wave_direction = 260 + math.sin(time_phase * 2 * math.pi) * 40
-
-            # North Pacific (40-60°N) - Storm track
-            elif 40 < lat < 60 and 140 < lon_norm < -120:
-                wave_height = 3.5 + math.sin((lon_norm + 180) * math.pi / 90) * 1.2
-                wave_direction = 280 + math.cos(time_phase * 2 * math.pi) * 35
-
-            # Trade wind zones (15-30° both hemispheres)
-            elif (15 < lat < 30) or (-30 < lat < -15):
-                wave_height = 2.0 + math.sin(lon_norm * math.pi / 120) * 0.5
-                if lat > 0:
-                    wave_direction = 60 + math.sin(lon_norm * math.pi / 180) * 20  # NE trades
-                else:
-                    wave_direction = 120 + math.sin(lon_norm * math.pi / 180) * 20  # SE trades
-
-            # Equatorial zone (15°S to 15°N) - Lighter, variable
-            elif -15 < lat < 15:
-                wave_height = 1.5 + math.sin(lon_norm * math.pi / 90) * 0.8
-                wave_direction = 90 + math.sin(lon_norm * math.pi / 60) * 60
-
-            # Mid-latitudes (30-40°)
-            elif (30 < lat < 40) or (-40 < lat < -30):
-                wave_height = 2.5 + math.cos(lon_norm * math.pi / 120) * 0.8
-                wave_direction = 270 + math.sin(lon_norm * math.pi / 90) * 30
-
-            # Polar regions
-            elif lat > 60 or lat < -60:
-                wave_height = 1.0 + math.sin(lon_norm * math.pi / 90) * 0.5
-                wave_direction = 180 + math.cos(lon_norm * math.pi / 60) * 60
-
-            # Add some realistic variation
-            import random
-            wave_height += random.uniform(-0.2, 0.2)
-            wave_direction += random.uniform(-10, 10)
-
-            # Add time-varying component
-            wave_height += math.sin(time_phase * 2 * math.pi + lat * math.pi / 90) * 0.3
-
-            # Ensure direction is in valid range
-            wave_direction = wave_direction % 360
-
-            # Convert to u/v
-            u, v = wave_to_uv(wave_direction, wave_height)
-
-            u_data.append(u)
-            v_data.append(v)
-
-    print(f"Generated {len(u_data)} data points")
+    print(f"  Converted to {len(u_data)} grid points")
 
     return {
         'header': {
-            'dx': dx,
-            'dy': dy,
-            'nx': nx,
-            'ny': ny,
+            'dx': float(dx),
+            'dy': float(dy),
+            'nx': int(nx),
+            'ny': int(ny),
             'la1': la1,
             'la2': la2,
             'lo1': lo1,
@@ -191,26 +344,74 @@ def save_to_json(data, filename='gfs-wave-data.json'):
     with open(filename, 'w') as f:
         json.dump(velocity_data, f, separators=(',', ':'))
 
-    print(f"Saved wave data to {filename}")
+    print(f"\n✓ Saved wave data to {filename}")
     file_size = Path(filename).stat().st_size / 1024
-    print(f"File size: {file_size:.1f} KB")
+    print(f"  File size: {file_size:.1f} KB")
 
 
 def main():
     """Main function."""
     print("=" * 60)
-    print("Simplified GFS Wave Data Generator")
+    print("NOAA GFS Wave Data Downloader")
     print("=" * 60)
 
-    # Generate enhanced synthetic data
-    wave_data = generate_realistic_synthetic_data()
+    # Get latest available cycle
+    cycle_date, cycle_hour = get_latest_gfs_cycle()
+    print(f"\nTarget cycle: {cycle_date} {cycle_hour}Z")
+
+    # Download GRIB2 data
+    grib_data, url = download_grib_data(cycle_date, cycle_hour)
+
+    if grib_data is None:
+        print("\n❌ Failed to download GRIB data from all sources")
+        print("   This could be because:")
+        print("   - The latest cycle is not yet available")
+        print("   - Network issues")
+        print("   - NOMADS server is down")
+        print("\n   Try again in a few minutes, or check https://nomads.ncep.noaa.gov/")
+        sys.exit(1)
+
+    # Save to temporary file
+    temp_grib = 'temp_wave_data.grib2'
+    with open(temp_grib, 'wb') as f:
+        f.write(grib_data)
+
+    print(f"\n✓ Downloaded {len(grib_data) / 1024 / 1024:.1f} MB")
+    print(f"  Source: {url}")
+
+    # Try to parse with available libraries
+    print("\nParsing GRIB2 file...")
+
+    parsed_data = try_parse_with_cfgrib(temp_grib)
+    if parsed_data is None:
+        parsed_data = try_parse_with_pygrib(temp_grib)
+
+    if parsed_data is None:
+        print("\n❌ Could not parse GRIB2 file")
+        print("   Please install one of these libraries:")
+        print("   - pip install cfgrib xarray")
+        print("   - pip install pygrib")
+        os.remove(temp_grib)
+        sys.exit(1)
+
+    print(f"\n✓ Successfully parsed with {parsed_data['method']}")
+
+    # Convert to leaflet format
+    wave_data = convert_to_leaflet_format(parsed_data)
 
     # Save to JSON
     save_to_json(wave_data)
 
-    print("\nSuccess! Wave data ready for leaflet-velocity")
-    print("Grid: {} x {}".format(wave_data['header']['nx'], wave_data['header']['ny']))
-    print("Generated at: {}".format(datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')))
+    # Clean up
+    os.remove(temp_grib)
+
+    print("\n" + "=" * 60)
+    print("SUCCESS! Real GFS wave data ready for leaflet-velocity")
+    print("=" * 60)
+    print(f"Grid: {wave_data['header']['nx']} x {wave_data['header']['ny']}")
+    print(f"Cycle: {cycle_date} {cycle_hour}Z")
+    print(f"Generated at: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+    print("=" * 60)
 
 
 if __name__ == "__main__":

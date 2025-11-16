@@ -23,7 +23,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests
+          pip install requests cfgrib xarray
 
       - name: Fetch GFS wave data
         run: |
