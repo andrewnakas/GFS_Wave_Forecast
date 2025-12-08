@@ -107,13 +107,13 @@ def parse_grib_file(grib_file):
         print("Available variables:", list(ds.data_vars))
 
         # Extract wave parameters
-        # HTSGW: Significant Height of Combined Wind Waves and Swell
+        # SWH: Significant Height of Combined Wind Waves and Swell
         # DIRPW: Primary Wave Direction
         # PERPW: Primary Wave Mean Period
 
         wave_height = ds['swh'].values if 'swh' in ds else None  # significant wave height
-        wave_direction = ds['mwd'].values if 'mwd' in ds else None  # mean wave direction
-        wave_period = ds['mwp'].values if 'mwp' in ds else None  # mean wave period
+        wave_direction = ds['dirpw'].values if 'dirpw' in ds else None  # primary wave direction
+        wave_period = ds['perpw'].values if 'perpw' in ds else None  # primary wave period
 
         lats = ds['latitude'].values
         lons = ds['longitude'].values

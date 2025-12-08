@@ -21,13 +21,18 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
-          pip install requests
+          sudo apt-get update
+          sudo apt-get install -y libeccodes-dev
+
+      - name: Install Python dependencies
+        run: |
+          pip install xarray cfgrib requests numpy
 
       - name: Fetch GFS wave data
         run: |
-          python fetch_simple.py
+          python fetch_gfs_data.py
 
       - name: Get current date
         id: date
