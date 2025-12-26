@@ -1,329 +1,224 @@
-# Ski Resort Snow Data Scraper
+# 🌊 GFS Wave Forecast Visualization
 
-A comprehensive Python-based system for collecting and storing daily snow condition data from major ski resorts across the Northern Hemisphere.
+Interactive global wave forecast visualization using real NOAA WAVEWATCH III data.
 
-## Features
+![Wave Visualization](https://img.shields.io/badge/Status-Live-brightgreen)
+![Data Source](https://img.shields.io/badge/Data-NOAA%20WAVEWATCH%20III-blue)
+![Update Frequency](https://img.shields.io/badge/Updates-Every%206%20Hours-orange)
 
-- **50+ Major Ski Resorts**: Covers popular resorts across North America, Europe, and Asia
-- **Comprehensive Snow Data**: Collects base/summit snow depth, 24h/48h/7-day snowfall, lift/run status, and more
-- **Automated Daily Updates**: Set up scheduled scraping via cron, built-in scheduler, or GitHub Actions
-- **SQLite Database**: Persistent storage with historical data tracking
-- **Extensible Architecture**: Easy to add new resorts and custom scrapers
-- **Robust Scraping**: Generic parser handles various website formats with specialized scrapers for major resort chains
-- **GitHub Actions Integration**: Automated testing and scheduled scraping in the cloud
+## 🚀 Live Demo
 
-## Covered Regions
+**View online:** https://andrewnakas.github.io/GFS_Wave_Forecast/
 
-### North America
-- **USA**: Colorado (Vail, Aspen, Breckenridge), Utah (Park City, Alta, Snowbird), California (Mammoth, Palisades Tahoe), Wyoming (Jackson Hole), Vermont (Stowe, Killington), and more
-- **Canada**: British Columbia (Whistler Blackcomb, Revelstoke), Alberta (Lake Louise, Sunshine Village), Quebec (Tremblant)
+## ✨ Features
 
-### Europe
-- **France**: Chamonix, Val d'Isère, Courchevel, Les Trois Vallées
-- **Switzerland**: Zermatt, Verbier, St. Moritz
-- **Austria**: St. Anton, Ischgl, Kitzbühel
-- **Italy**: Cortina d'Ampezzo
+- **Real-time wave data** from NOAA WAVEWATCH III global wave model
+- **Interactive Leaflet map** showing global wave conditions
+- **Animated wave particles** that move like real ocean waves
+- **10-day forecast** with 3-hour intervals (80 timesteps)
+- **Click-for-details** - Click anywhere on ocean to see wave forecast chart
+- **Vector visualization** showing wave direction and magnitude
+- **Automatic updates** every 6 hours via GitHub Actions
 
-### Asia
-- **Japan**: Niseko, Hakuba Valley, Rusutsu
-- **South Korea**: Yongpyong
+## 🎯 How to Use
 
-## Installation
+### Map Controls
+- **Pan & Zoom**: Explore global wave conditions
+- **Click on ocean**: See detailed wave forecast for that location
+- **Time slider**: View different forecast times
+- **Play button**: Animate through the 10-day forecast
 
-### Prerequisites
-- Python 3.8 or higher
-- pip (Python package manager)
+### Visualization Options
+- **Show Wave Vectors**: Display arrows showing wave direction and height
+- **Show Particle Animation**: Animated particles showing wave movement
+  - Particles move broadside like real ocean waves
+  - No particles render over land
+  - Freeze during pan/zoom for smooth interaction
+- **Vector Scale**: Adjust arrow size (1-10)
 
-### Setup
+### Wave Information
+- **Height**: Significant wave height in meters
+- **Direction**: Wave direction in degrees (meteorological convention)
+- **Period**: Wave period in seconds
+- **Forecast Chart**: 10-day timeline for selected location
 
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd GFS_Wave_Forecast
-   ```
+## 🏃 Quick Start
 
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### View Online
+Just visit: **https://andrewnakas.github.io/GFS_Wave_Forecast/**
 
-3. **Initialize the database**:
-   ```bash
-   python collect_data.py --init
-   ```
-
-## Usage
-
-### Manual Data Collection
-
-Collect snow data from all resorts:
-```bash
-python collect_data.py --collect
-```
-
-Collect data from specific countries:
-```bash
-python collect_data.py --collect --countries USA Canada
-```
-
-Collect data from specific resorts:
-```bash
-python collect_data.py --collect --resorts "Vail" "Whistler Blackcomb" "Niseko"
-```
-
-### View Latest Data
-
-Show all latest snow reports:
-```bash
-python collect_data.py --show
-```
-
-Show data for a specific resort:
-```bash
-python collect_data.py --show --resort "Vail"
-```
-
-### Automated Daily Updates
-
-#### Option 1: Using Built-in Scheduler
-
-Run the scheduler as a daemon (runs continuously):
-```bash
-python scheduler.py --init --time 06:00
-```
-
-Run collection immediately then start scheduler:
-```bash
-python scheduler.py --init --run-now --time 06:00
-```
-
-#### Option 2: Using Cron (Linux/Mac)
-
-Set up a daily cron job (runs at 6:00 AM by default):
-```bash
-./setup_cron.sh
-```
-
-Custom time (e.g., 8:30 AM):
-```bash
-./setup_cron.sh "30 8 * * *"
-```
-
-View installed cron jobs:
-```bash
-crontab -l
-```
-
-#### Option 3: Using GitHub Actions (Cloud-based)
-
-The repository includes a GitHub Actions workflow for automated testing and data collection.
-
-**Manual Test (Recommended for testing):**
-
-1. Go to your repository on GitHub
-2. Click on "Actions" tab
-3. Select "Ski Resort Scraper Test" workflow
-4. Click "Run workflow" dropdown
-5. Configure options:
-   - **Countries**: Space-separated (e.g., `USA Canada`)
-   - **Resorts**: Comma-separated (e.g., `Vail,Whistler Blackcomb,Niseko`)
-   - **Test mode**: Check to scrape only 5 resorts (faster testing)
-6. Click "Run workflow"
-
-The workflow will:
-- Set up Python environment
-- Install dependencies
-- Initialize the database
-- Scrape the selected resorts
-- Display collected data
-- Generate powder report and statistics
-- Upload database and logs as artifacts (available for 30 days)
-
-**Scheduled Runs:**
-
-The workflow is configured to run daily at 7 AM UTC. To enable/disable:
-1. Edit `.github/workflows/scraper-test.yml`
-2. Modify or comment out the `schedule` section
-
-**Artifacts:**
-
-After each run, download the artifacts to get:
-- `ski_resorts.db` - Complete database with scraped data
-- `latest_snow_data.csv` - Exported CSV file
-- Log files with detailed scraping information
-
-### Testing
-
-Run the test suite to validate the scraper:
-```bash
-python test_scraper.py
-```
-
-This runs automated tests for:
-- Database creation
-- Resort data integrity
-- Scraper initialization
-- Database operations
-- Live scraping test (scrapes Vail as a test)
-
-## Database Schema
-
-### Tables
-
-**resorts**
-- Resort information (name, location, elevation, website URLs)
-- One-time or rarely updated data
-
-**snow_data**
-- Daily snow conditions for each resort
-- Metrics: snow depth (base/summit), new snowfall (24h/48h/7d), lift/run status, temperature, conditions
-
-**scraping_log**
-- Tracks all scraping attempts with success/failure status
-- Useful for debugging and monitoring
-
-## Data Collected
-
-For each resort, the scraper attempts to collect:
-
-- **Snow Depth**: Base and summit snow depth (cm)
-- **New Snowfall**: 24-hour, 48-hour, and 7-day totals (cm)
-- **Resort Status**: Number of open lifts and runs vs. total
-- **Weather**: Temperature, conditions, visibility
-- **Season Stats**: Total seasonal snowfall, last snowfall date
-- **Additional Data**: Terrain park status and other resort-specific information
-
-## Architecture
-
-### Core Components
-
-1. **database.py**: SQLite database management with schema and CRUD operations
-2. **resorts_data.py**: Comprehensive list of 50+ Northern Hemisphere ski resorts
-3. **scrapers.py**: Web scraping engine with generic and specialized scrapers
-4. **collect_data.py**: Main script for data collection and CLI interface
-5. **scheduler.py**: Daily automation scheduler
-
-### Scraping Strategy
-
-The system uses a multi-tiered approach:
-
-1. **Specialized Scrapers**: Custom parsers for major resort chains (Vail Resorts, etc.)
-2. **Generic Parser**: Fallback parser using pattern matching for common snow report formats
-3. **Resilient Extraction**: Multiple URL attempts and regex patterns for robust data extraction
-
-## Adding New Resorts
-
-To add a new resort, edit `resorts_data.py` and add an entry:
-
-```python
-{
-    "name": "Resort Name",
-    "country": "Country",
-    "region": "State/Province",
-    "latitude": 45.0000,
-    "longitude": -110.0000,
-    "base_elevation_m": 2000,
-    "summit_elevation_m": 3000,
-    "vertical_drop_m": 1000,
-    "website_url": "https://www.resort.com",
-    "snow_report_url": "https://www.resort.com/snow-report"
-}
-```
-
-Then re-initialize the database:
-```bash
-python collect_data.py --init
-```
-
-## Extending with Custom Scrapers
-
-For resorts with unique website formats, create a custom scraper class in `scrapers.py`:
-
-```python
-class CustomResortScraper(SnowDataScraper):
-    def scrape_resort(self, resort_data: Dict) -> Dict:
-        # Custom scraping logic
-        pass
-```
-
-Update `get_scraper_for_resort()` to use your custom scraper.
-
-## Export Data
-
-The database can be queried directly using SQLite tools:
+### Run Locally
 
 ```bash
-sqlite3 ski_resorts.db "SELECT * FROM snow_data WHERE date = date('now') ORDER BY new_snow_24h_cm DESC LIMIT 10"
+# Clone repository
+git clone https://github.com/andrewnakas/GFS_Wave_Forecast.git
+cd GFS_Wave_Forecast
+
+# Start local server
+python3 -m http.server 8000
+
+# Open browser
+open http://localhost:8000
 ```
 
-Or use Python:
-```python
-from database import SkiResortDatabase
+### Fetch Latest Data
 
-db = SkiResortDatabase()
-latest_data = db.get_latest_snow_data()
-```
-
-## Logs
-
-- **ski_resort_scraper.log**: Main scraping activity log
-- **ski_resort_scheduler.log**: Scheduler activity log
-- **cron.log**: Cron job execution log (if using cron)
-
-## Troubleshooting
-
-### No Data Extracted
-
-Some resorts may have:
-- Changed their website structure
-- Implemented anti-scraping measures
-- Different data formats requiring custom scrapers
-
-Check the logs for specific errors and consider adding a custom scraper.
-
-### Rate Limiting
-
-The scraper includes delays between requests (default: 2 seconds) to avoid overwhelming servers. If you experience issues:
-
-1. Increase the delay in `scrapers.py`
-2. Scrape smaller subsets of resorts
-3. Use the country filter to distribute scraping
-
-### Database Issues
-
-Reset the database:
 ```bash
-rm ski_resorts.db
-python collect_data.py --init
+# Install dependencies
+pip install -r requirements.txt
+
+# Run data fetcher
+cd backend
+python3 fetch_gfs_data.py
 ```
 
-## Contributing
+## 📊 Data Sources
 
-Contributions are welcome! Areas for improvement:
+1. **Primary**: PacIOOS Hawaii ERDDAP (WAVEWATCH III Global)
+   - URL: https://pae-paha.pacioos.hawaii.edu/erddap/griddap/ww3_global
+   - 77,000+ timesteps available
+   - 0.5° resolution
 
-- Add more ski resorts
-- Improve scraping accuracy for specific resorts
-- Add data visualization/dashboard
-- Create REST API for data access
-- Add snow forecast integration
-- Implement multi-language support
+2. **Backup**: NOAA CoastWatch ERDDAP
+   - URL: https://coastwatch.pfeg.noaa.gov/erddap/griddap/NWW3_Global_Best
 
-## Legal & Ethics
+3. **Fallback**: Generated sample data (if servers unavailable)
 
-**Important**: This tool is for personal/educational use. When scraping:
+## 🛠️ Technical Details
 
-- Respect robots.txt files
-- Don't overload resort websites
-- Use reasonable delays between requests
-- Consider using official APIs where available
-- Comply with terms of service
+### Data Processing
+- **Resolution**: ~4° global grid (subsampled from 0.5° source)
+- **Coverage**: -77.5° to 77.5° latitude (global)
+- **Forecast Length**: 10 days / 240 hours
+- **Update Frequency**: Every 6 hours (via GitHub Actions)
+- **File Size**: ~50-100 MB per update
+- **Lazy Loading**: Uses dask for efficient data fetching
 
-Many resorts provide official APIs or data feeds - please use those when available.
+### Wave Particles
+- **Geographic positioning**: Maintain lat/lon coordinates
+- **Land masking**: Accurate continental boundaries
+- **Smooth rendering**: Pause during map movement
+- **Performance**: 50-60 FPS with 1500 particles
 
-## License
+### Performance Optimizations
+- Dask chunking for lazy data loading
+- Spatial subsampling (every 8th point)
+- Frame skipping (every other frame)
+- Buffer zones for smooth panning
+- Cached wave data computations
 
-See LICENSE file for details.
+## 📁 Project Structure
 
-## Support
+```
+GFS_Wave_Forecast/
+├── index.html                   # Main visualization page
+├── css/style.css               # Styling
+├── js/
+│   ├── map.js                  # Map initialization & controls
+│   ├── waveLayer.js            # Canvas particle rendering
+│   └── dataFetcher.js          # Data loading & land masking
+├── backend/
+│   └── fetch_gfs_data.py       # Python data fetcher
+├── .github/workflows/
+│   └── update-gfs-data.yml     # Auto-update workflow
+├── gfs-wave-data.json          # Latest wave data
+└── requirements.txt            # Python dependencies
+```
 
-For issues, questions, or contributions, please open an issue on GitHub.
+## 🔄 Automatic Updates
+
+Data updates every 6 hours via GitHub Actions:
+- **Schedule**: 0:00, 6:00, 12:00, 18:00 UTC
+- **Source**: NOAA WAVEWATCH III via ERDDAP
+- **Process**: Fetch → Process → Commit → Deploy
+
+### Manual Trigger
+1. Go to repository Actions tab
+2. Select "Update GFS Wave Data"
+3. Click "Run workflow"
+
+## 🌐 Deployment
+
+Automatically deployed to GitHub Pages on merge to `main`.
+
+### Setup GitHub Pages
+1. Go to Settings → Pages
+2. Source: Deploy from a branch
+3. Branch: `main` / `root`
+4. Save
+
+## 🧪 Development
+
+### Local Testing
+
+```bash
+# Serve with Python
+python3 -m http.server 8000
+
+# Or with Node.js
+npx http-server -p 8000
+
+# View at http://localhost:8000
+```
+
+### Update Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Test Data Fetch
+
+```bash
+cd backend
+python3 fetch_gfs_data.py
+```
+
+## 📝 Dependencies
+
+### Python (Backend)
+- `xarray` - NetCDF/OpenDAP data access
+- `netCDF4` - NetCDF file support
+- `numpy` - Numerical operations
+- `pandas` - Data manipulation
+- `dask` - Lazy loading for large datasets
+- `requests` - HTTP requests
+
+### JavaScript (Frontend)
+- Leaflet.js 1.9.4 - Interactive maps
+- Chart.js 4.4.0 - Forecast charts
+
+## 🤝 Contributing
+
+Contributions welcome! Areas for improvement:
+- Additional data sources
+- Better land masking
+- More visualization options
+- Performance optimizations
+- Mobile responsiveness
+- Forecast accuracy metrics
+
+## 📄 License
+
+- Code: MIT License
+- Data: Public domain (NOAA)
+
+## 🙏 Acknowledgments
+
+- **NOAA**: WAVEWATCH III wave model
+- **PacIOOS**: Hawaii ERDDAP server
+- **NOAA CoastWatch**: Alternative ERDDAP server
+- **Leaflet.js**: Interactive mapping
+- **Chart.js**: Data visualization
+
+## 📧 Support
+
+- Issues: https://github.com/andrewnakas/GFS_Wave_Forecast/issues
+- Discussions: https://github.com/andrewnakas/GFS_Wave_Forecast/discussions
+
+---
+
+**Made with** 🌊 **by** [@andrewnakas](https://github.com/andrewnakas)
+
+**Data Source**: NOAA WAVEWATCH III Global Wave Model
+**Last Updated**: Auto-updated every 6 hours
